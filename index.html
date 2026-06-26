@@ -1504,8 +1504,12 @@ function vendorModal(id){
     <div class="modal-head"><h3>${id?'Edit Vendor':'Vendor Baru'}</h3><button class="modal-x" data-act="close">✕</button></div>
     <div class="modal-body">
       <div class="mfield"><label>Nama Vendor *</label><input id="v-name" value="${esc(x.name)}" placeholder="Mawar Catering"></div>
-      <div class="mfield"><label>Kategori</label><input id="v-cat" value="${esc(x.category)}" placeholder="Katering, Foto, MUA…" list="catlist">
-        <datalist id="catlist">${['Gedung','Katering','Dekorasi','Foto & Video','MUA','Busana','WO','Hiburan','Undangan','Souvenir','Cincin','Transportasi'].map(c=>`<option value="${c}">`).join('')}</datalist></div>
+      <div class="mfield"><label>Kategori</label>
+        <select id="v-cat">
+          <option value=""${!x.category?' selected':''}>— Pilih kategori —</option>
+          ${['Gedung','Katering','Dekorasi','Foto & Video','MUA','Busana','WO','Hiburan','Undangan','Souvenir','Cincin','Transportasi'].map(c=>`<option value="${esc(c)}"${x.category===c?' selected':''}>${esc(c)}</option>`).join('')}
+          ${x.category && !['Gedung','Katering','Dekorasi','Foto & Video','MUA','Busana','WO','Hiburan','Undangan','Souvenir','Cincin','Transportasi'].includes(x.category)?`<option value="${esc(x.category)}" selected>${esc(x.category)}</option>`:''}
+        </select></div>
       <div class="mrow">
         <div class="mfield"><label>Narahubung</label><input id="v-contact" value="${esc(x.contact)}" placeholder="Bu Sari"></div>
         <div class="mfield"><label>No. HP / WA</label><input id="v-phone" value="${esc(x.phone)}" placeholder="0812…"></div>

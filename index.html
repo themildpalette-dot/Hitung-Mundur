@@ -619,6 +619,9 @@ const APP_NAME = 'NaikPelaminan';
 const MUSIC_URL   = 'lagu.mp3';
 const MUSIC_TITLE = 'Lagu Kami';
 const AUTH_DOMAIN = 'bigdayloading.app'; // identitas internal utk login berbasis nama pengguna — tidak pernah ditampilkan
+// ====== PERTANYAAN KEAMANAN (pemulihan sandi mandiri) ======
+const SEC_QUESTIONS = ['Nama hewan peliharaan pertamamu?','Nama sekolah dasarmu?','Nama tengah ibumu?','Kota tempat kamu lahir?','Nama panggilan masa kecilmu?','Makanan favoritmu?'];
+function secQOptions(sel){ return SEC_QUESTIONS.map(q=>`<option value="${esc(q)}"${sel===q?' selected':''}>${esc(q)}</option>`).join(''); }
 // nama pengguna → identitas internal; bila input sudah berupa email (akun lama) dipakai apa adanya
 function toAuthEmail(input){
   const v=(input||'').trim().toLowerCase();
@@ -1234,6 +1237,7 @@ function settingsModal(){
     <div class="modal-body">
       ${accountSectionHTML()}
       ${changePassSectionHTML()}
+      ${secQSectionHTML()}
       <div class="mrow">
         <div class="mfield"><label>Nama Mempelai 1</label><input id="f-p1" value="${esc(s.partner1)}" placeholder="Andi"></div>
         <div class="mfield"><label>Nama Mempelai 2</label><input id="f-p2" value="${esc(s.partner2)}" placeholder="Bunga"></div>
@@ -1630,6 +1634,10 @@ document.addEventListener('click',e=>{
     case 'music-toggle': musicToggle(); break;
     case 'change-pass': changePassModal(); break;
     case 'submit-change-pass': submitChangePass(); break;
+    case 'forgot-next': forgotNext(); break;
+    case 'forgot-reset': forgotReset(t.dataset.login); break;
+    case 'sec-q': secQModal(); break;
+    case 'submit-sec-q': submitSecQ(); break;
     case 'dismiss-banner': $('#localBanner').innerHTML=''; break;
     case 'close': closeModal(); break;
     case 'save-settings': saveSettings(); break;
@@ -1718,18 +1726,17 @@ function renderAuth(){
       <div class="auth-hero">
         <div class="ring">🔑</div>
         <h1>Lupa Kata Sandi</h1>
-        <p>Kami kirim link reset ke emailmu</p>
+        <p>Pulihkan akun lewat pertanyaan keamanan</p>
       </div>
       <div class="auth-body">
         <div class="auth-err" id="au-err"></div>
-        <div class="mfield"><label>Email akun</label><input type="email" id="au-email" placeholder="nama@email.com" autocomplete="email"></div>
-        <div class="warn" style="background:#F3E8FF;color:#6b21a8;border-color:#E9D5FF;margin:0 0 14px;font-size:12px;line-height:1.5">ℹ️ Reset lewat email hanya untuk akun yang didaftarkan pakai <b>email</b>. Kalau kamu daftar pakai <b>nama pengguna</b>, hubungi admin untuk reset.</div>
-        <button class="btn btn-pri btn-block" id="au-submit" data-act="send-reset">Kirim Link Reset</button>
+        <div class="mfield"><label>Nama Pengguna</label><input type="text" id="fg-user" placeholder="mis. sanick88" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
+        <button class="btn btn-pri btn-block" id="au-submit" data-act="forgot-next">Lanjut</button>
         <p class="auth-note"><a data-act="auth-mode" data-mode="signin" style="color:var(--rose);font-weight:700;cursor:pointer">← Kembali ke Masuk</a></p>
       </div>
     </div>`;
-    const e=$('#au-email'); if(e) e.addEventListener('keydown',ev=>{ if(ev.key==='Enter') sendResetEmail(); });
-    setTimeout(()=>{const x=$('#au-email'); if(x) x.focus();},60);
+    const e=$('#fg-user'); if(e) e.addEventListener('keydown',ev=>{ if(ev.key==='Enter') forgotNext(); });
+    setTimeout(()=>{const x=$('#fg-user'); if(x) x.focus();},60);
     return;
   }
   $('#auth').innerHTML=`
@@ -1747,6 +1754,9 @@ function renderAuth(){
         <div class="auth-err" id="au-err"></div>
         <div class="mfield"><label>Nama Pengguna</label><input type="text" id="au-email" placeholder="mis. sanick88" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
         <div class="mfield"><label>Kata Sandi</label><div class="pass-wrap"><input type="password" id="au-pass" placeholder="minimal 6 karakter" autocomplete="${authMode==='signup'?'new-password':'current-password'}"><button type="button" class="pass-eye" data-act="toggle-pass" data-target="au-pass" aria-label="Lihat sandi" title="Lihat / sembunyikan sandi">👁️</button></div></div>
+        ${authMode==='signup'?`<div class="mfield"><label>Pertanyaan Keamanan</label><select id="au-secq">${secQOptions()}</select></div>
+        <div class="mfield"><label>Jawaban</label><input type="text" id="au-seca" placeholder="jawaban rahasia kamu" autocomplete="off" spellcheck="false"></div>
+        <p style="font-size:11.5px;color:var(--ink-soft);margin:-6px 0 6px;line-height:1.5">🛡️ Dipakai kalau kamu lupa kata sandi nanti. Ingat baik-baik jawabannya.</p>`:''}
         <button class="btn btn-pri btn-block" id="au-submit" data-act="auth-submit">${authMode==='signup'?'Daftar':'Masuk'}</button>
         ${authMode==='signin'?`<p style="text-align:center;margin-top:12px"><a data-act="auth-mode" data-mode="forgot" style="color:var(--ink-soft);font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:underline">Lupa kata sandi?</a></p>`:''}
         <p class="auth-note">${authMode==='signup'?'Sudah punya akun? Klik “Masuk”.':'Belum punya akun? Klik “Daftar”.'}<br>Atur anggaran, vendor, &amp; tamu — privat dan tersimpan otomatis.</p>
@@ -1758,6 +1768,60 @@ function showAuth(){ document.body.classList.remove('admin-mode','is-app'); if(t
 function hideAuth(){ $('#auth').classList.remove('show'); }
 function switchAuthMode(m){ authMode=m; renderAuth(); }
 function authError(msg){ const e=$('#au-err'); if(e){ e.textContent=msg; e.classList.add('show'); } }
+/* ---------- lupa sandi via pertanyaan keamanan (mandiri, tanpa email/admin) ---------- */
+async function forgotNext(){
+  const u=($('#fg-user')?.value||'').trim();
+  if(!u){ authError('Masukkan nama penggunamu dulu.'); return; }
+  const login=toAuthEmail(u);
+  const btn=$('[data-act="forgot-next"]'); if(btn){ btn.disabled=true; btn.innerHTML='<span class="spin"></span>'; }
+  try{
+    const {data,error}=await sb.rpc('get_security_question',{login});
+    if(error) throw error;
+    if(!data){ if(btn){btn.disabled=false;btn.textContent='Lanjut';} authError('Akun ini belum punya pertanyaan keamanan. Minta admin reset sandimu lewat Konsol Admin.'); return; }
+    renderForgotStep2(login,data);
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent='Lanjut'; }
+    const msg=(e&&e.message)||'';
+    authError(/function|does not exist|schema|get_security_question|could not find|column/i.test(msg)?'Fitur belum aktif. Minta admin menjalankan SQL pertanyaan keamanan.':'Gagal: '+(msg||'coba lagi'));
+  }
+}
+function renderForgotStep2(login,question){
+  $('#auth').innerHTML=`
+    <div class="auth-card">
+      <div class="auth-hero">
+        <div class="ring">🔐</div>
+        <h1>Pertanyaan Keamanan</h1>
+        <p>Jawab benar untuk membuat sandi baru</p>
+      </div>
+      <div class="auth-body">
+        <div class="auth-err" id="au-err"></div>
+        <div class="mfield"><label>${esc(question)}</label><input type="text" id="fg-ans" placeholder="jawabanmu" autocomplete="off" spellcheck="false"></div>
+        <div class="mfield"><label>Kata Sandi Baru</label><div class="pass-wrap"><input type="password" id="fg-pass" placeholder="minimal 6 karakter" autocomplete="new-password"><button type="button" class="pass-eye" data-act="toggle-pass" data-target="fg-pass" title="Lihat / sembunyikan">👁️</button></div></div>
+        <button class="btn btn-pri btn-block" id="au-submit" data-act="forgot-reset" data-login="${esc(login)}">Simpan Sandi Baru</button>
+        <p class="auth-note"><a data-act="auth-mode" data-mode="signin" style="color:var(--rose);font-weight:700;cursor:pointer">← Kembali ke Masuk</a></p>
+      </div>
+    </div>`;
+  ['fg-ans','fg-pass'].forEach(id=>{const e=$('#'+id); if(e) e.addEventListener('keydown',ev=>{ if(ev.key==='Enter') forgotReset(login); });});
+  setTimeout(()=>{const e=$('#fg-ans'); if(e) e.focus();},60);
+}
+async function forgotReset(login){
+  const ans=($('#fg-ans')?.value||'').trim();
+  const p=$('#fg-pass')?.value||'';
+  if(!ans){ authError('Isi jawaban keamananmu.'); return; }
+  if(p.length<6){ authError('Kata sandi baru minimal 6 karakter.'); return; }
+  const btn=$('[data-act="forgot-reset"]'); if(btn){ btn.disabled=true; btn.innerHTML='<span class="spin"></span>'; }
+  try{
+    const {error}=await sb.rpc('reset_password_with_answer',{login,answer:ans,new_password:p});
+    if(error) throw error;
+    toast('Kata sandi berhasil diganti 🔐');
+    authMode='signin'; renderAuth();
+    setTimeout(()=>{ const x=$('#au-email'); if(x) x.value=displayUser(login); const pf=$('#au-pass'); if(pf) pf.focus(); },80);
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent='Simpan Sandi Baru'; }
+    const msg=(e&&e.message)||'';
+    authError(msg.includes('salah')?'Jawaban keamanan salah, coba lagi.':(msg.includes('belum')?'Akun belum punya pertanyaan keamanan — minta admin reset.':'Gagal: '+(msg||'coba lagi')));
+  }
+}
 
 /* ---------- reset password ---------- */
 async function sendResetEmail(){
@@ -1830,6 +1894,10 @@ async function authSubmit(){
     if(!/[0-9]/.test(uname)){ authError('Nama pengguna wajib mengandung minimal 1 angka (mis. sanick88).'); return; }
   }
   if(pass.length<6){ authError('Kata sandi minimal 6 karakter.'); return; }
+  if(authMode==='signup'){
+    const seca=($('#au-seca')?.value||'').trim();
+    if(seca.length<2){ authError('Isi jawaban pertanyaan keamanan (untuk pemulihan sandi).'); return; }
+  }
   const email=toAuthEmail(uname);
   const btn=$('#au-submit'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
   let res;
@@ -1844,6 +1912,11 @@ async function authSubmit(){
     authError('Akun dibuat! Matikan "Confirm email" di Supabase agar bisa langsung masuk, lalu klik Masuk.');
     switchAuthMode('signin'); return;
   }
+  if(authMode==='signup' && res.data.session){
+    const secq=$('#au-secq')?.value||SEC_QUESTIONS[0];
+    const seca=($('#au-seca')?.value||'').trim();
+    try{ await sb.rpc('set_security_qa',{question:secq,answer:seca}); }catch(e){ console.error('set_security_qa',e); }
+  }
   // sukses → onAuthStateChange yang menampilkan app
 }
 async function logout(){ try{ await sb.auth.signOut(); }catch(e){} }
@@ -1852,6 +1925,37 @@ async function logout(){ try{ await sb.auth.signOut(); }catch(e){} }
 function changePassSectionHTML(){
   if(!(CLOUD_ENABLED && currentUser && userStatus==='approved')) return '';
   return `<button class="btn btn-ghost btn-block" data-act="change-pass" style="margin:0 0 4px">🔑 Ganti Kata Sandi</button>`;
+}
+function secQSectionHTML(){
+  if(!(CLOUD_ENABLED && currentUser && userStatus==='approved')) return '';
+  return `<button class="btn btn-ghost btn-block" data-act="sec-q" style="margin:0 0 10px">🛡️ Pertanyaan Keamanan</button>`;
+}
+function secQModal(){
+  openModal(`<div class="modal-head"><h3>Pertanyaan Keamanan</h3><button class="modal-x" data-act="close">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5">Dipakai untuk memulihkan akun kalau kamu lupa kata sandi — tanpa perlu admin. Pilih pertanyaan dan isi jawaban yang mudah kamu ingat.</p>
+      <div id="sq-err" style="display:none;background:#FFF1F3;color:#be123c;border:1px solid #FBD5DC;border-radius:10px;padding:9px 12px;font-size:12.5px;margin-bottom:12px"></div>
+      <div class="mfield"><label>Pertanyaan</label><select id="sq-q">${secQOptions()}</select></div>
+      <div class="mfield"><label>Jawaban</label><div class="pass-wrap"><input type="text" id="sq-a" placeholder="jawaban rahasia" autocomplete="off" spellcheck="false"><button type="button" class="pass-eye on" data-act="toggle-pass" data-target="sq-a" title="Lihat / sembunyikan">🙈</button></div></div>
+      <button class="btn btn-pri btn-block" data-act="submit-sec-q" style="margin-top:6px">Simpan Pertanyaan Keamanan</button>
+    </div>`);
+  setTimeout(()=>{const e=$('#sq-a'); if(e) e.focus();},60);
+}
+function sqError(m){ const e=$('#sq-err'); if(e){ e.textContent=m; e.style.display='block'; } }
+async function submitSecQ(){
+  const q=$('#sq-q')?.value||SEC_QUESTIONS[0];
+  const a=($('#sq-a')?.value||'').trim();
+  if(a.length<2){ sqError('Jawaban terlalu pendek.'); return; }
+  const btn=$('[data-act="submit-sec-q"]'); if(btn){ btn.disabled=true; btn.innerHTML='<span class="spin"></span>'; }
+  try{
+    const {error}=await sb.rpc('set_security_qa',{question:q,answer:a});
+    if(error) throw error;
+    closeModal(); toast('Pertanyaan keamanan tersimpan 🛡️');
+  }catch(e){
+    const msg=(e&&e.message)||'';
+    sqError(/function|does not exist|schema|set_security_qa|could not find|column/i.test(msg)?'Fitur belum aktif. Jalankan dulu SQL pertanyaan keamanan di Supabase.':'Gagal: '+msg);
+    if(btn){ btn.disabled=false; btn.textContent='Simpan Pertanyaan Keamanan'; }
+  }
 }
 function changePassModal(){
   openModal(`<div class="modal-head"><h3>Ganti Kata Sandi</h3><button class="modal-x" data-act="close">✕</button></div>

@@ -367,6 +367,27 @@ body.admin-mode .fab,body.admin-mode .persona{display:none!important}
 .mus-vol{flex:1;min-width:0;accent-color:var(--rose)}
 .persona-note{font-size:11px;color:var(--ink-soft);line-height:1.45;margin-top:11px}
 @media(max-width:560px){.fab{right:14px;bottom:14px}.persona{right:14px;bottom:78px}}
+/* ===== Lapor / Masukan (pojok kiri bawah) ===== */
+.fab-fb{display:none;position:fixed;left:18px;bottom:18px;z-index:60;width:50px;height:50px;border-radius:50%;background:#fff;border:1.5px solid var(--line);color:var(--ink);font-size:21px;place-items:center;box-shadow:0 10px 26px rgba(67,35,58,.18);transition:transform .18s,box-shadow .2s}
+body.is-app:not(.admin-mode) .fab-fb{display:grid}
+.fab-fb:hover{transform:translateY(-3px) scale(1.05)}
+.fab-fb:active{transform:scale(.95)}
+.fbpanel{position:fixed;left:18px;bottom:78px;z-index:61;width:320px;max-width:calc(100vw - 36px);background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:0 22px 54px rgba(67,35,58,.24);padding:16px;opacity:0;transform:translateY(12px) scale(.96);pointer-events:none;transition:.22s;transform-origin:bottom left}
+.fbpanel.open{opacity:1;transform:none;pointer-events:auto}
+body:not(.is-app) .fbpanel,body.admin-mode .fbpanel{display:none!important}
+.fb-types{display:flex;gap:8px;margin-bottom:10px}
+.fb-type{flex:1;padding:9px 6px;border:1.5px solid var(--line);border-radius:12px;background:#fff;font-weight:700;font-size:12.5px;color:var(--ink-soft);cursor:pointer;transition:.15s}
+.fb-type.on{border-color:var(--rose);background:var(--glow1);color:var(--ink)}
+.fb-area{width:100%;min-height:96px;resize:vertical;padding:11px 13px;border:1.5px solid var(--line);border-radius:13px;background:#fff;outline:none;font-weight:500;font-family:var(--font-b);font-size:14px;color:var(--ink)}
+.fb-area:focus{border-color:var(--rose);box-shadow:0 0 0 3px rgba(255,77,141,.12)}
+@media(max-width:560px){.fab-fb{left:14px;bottom:14px}.fbpanel{left:14px;bottom:72px}}
+/* daftar laporan di konsol admin */
+.fb-item{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;background:#fff}
+.fb-item.fb-done{opacity:.6}
+.fb-item-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px}
+.fb-meta{font-size:11.5px;color:var(--ink-soft);font-weight:600}
+.fb-msg{font-size:13.5px;line-height:1.5;color:var(--ink);white-space:pre-wrap;word-break:break-word;margin-bottom:10px}
+.fb-acts{display:flex;gap:8px;flex-wrap:wrap}
 .confetti{position:fixed;width:10px;height:14px;border-radius:3px;animation:confetti 1.1s ease-out forwards}
 @keyframes confetti{
   0%{transform:translate(0,0) rotate(0);opacity:1}
@@ -601,6 +622,8 @@ body.admin-mode #appFoot{display:none!important}
 <div class="confetti-layer" id="confetti"></div>
 <button class="fab" id="fabBtn" data-act="toggle-personalize" aria-label="Personalisasi" title="Personalisasi">✨</button>
 <div class="persona" id="personaPanel"></div>
+<button class="fab-fb" id="fbBtn" data-act="toggle-feedback" aria-label="Lapor atau beri masukan" title="Lapor bug / kirim masukan">💬</button>
+<div class="fbpanel" id="feedbackPanel"></div>
 <input type="file" id="importFile" accept="application/json" hidden>
 <input type="file" id="moodInput" accept="image/*" multiple hidden>
 
@@ -1660,9 +1683,16 @@ document.addEventListener('click',e=>{
     case 'reset-pass-user': resetUserPass(id); break;
     case 'submit-reset-pass': submitResetPass(id); break;
     case 'refresh-admin': loadAdminUsers(); break;
+    case 'refresh-feedback': loadFeedback(); break;
+    case 'fb-resolve': fbResolve(id); break;
+    case 'fb-reopen': fbReopen(id); break;
+    case 'fb-delete': fbDelete(id); break;
     case 'save-announce': saveAnnounce(); break;
     case 'dismiss-announce': announceDismissed=true; { const b=$('#announceBar'); if(b) b.innerHTML=''; } break;
     case 'toggle-personalize': togglePersona(); break;
+    case 'toggle-feedback': toggleFeedback(); break;
+    case 'fb-type': setFbType(t.dataset.type); break;
+    case 'submit-feedback': submitFeedback(); break;
     case 'set-theme': setTheme(t.dataset.theme); break;
     case 'music-toggle': musicToggle(); break;
     case 'change-pass': changePassModal(); break;
@@ -2212,6 +2242,70 @@ function renderPersona(){
 }
 function togglePersona(){ const p=$('#personaPanel'); if(!p) return; if(p.classList.toggle('open')) renderPersona(); }
 function setTheme(id){ applyTheme(id); if(state&&state.settings){ state.settings.theme=id; save(); } renderPersona(); }
+/* ===== Lapor / Masukan: popup pengguna ===== */
+let fbType='bug';
+function toggleFeedback(){ const p=$('#feedbackPanel'); if(!p) return; if(p.classList.toggle('open')) renderFeedback(); }
+function setFbType(t){ fbType=t; renderFeedback(); }
+function renderFeedback(){
+  const p=$('#feedbackPanel'); if(!p) return;
+  const types=[['bug','🐞 Bug'],['saran','💡 Saran'],['lainnya','💬 Lainnya']];
+  p.innerHTML=`
+    <div class="persona-h"><b>💬 Lapor / Masukan</b><button class="persona-x" data-act="toggle-feedback" aria-label="Tutup">✕</button></div>
+    <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;margin:0 0 12px">Laporkan bug atau kirim saran — pesanmu langsung masuk ke admin. 🙌</p>
+    <div class="fb-types">${types.map(([v,l])=>`<button class="fb-type${fbType===v?' on':''}" data-act="fb-type" data-type="${v}">${l}</button>`).join('')}</div>
+    <textarea id="fbMsg" class="fb-area" placeholder="Tulis laporan atau masukanmu di sini…"></textarea>
+    <button class="btn btn-pri btn-block" data-act="submit-feedback" style="margin-top:10px">Kirim</button>`;
+  setTimeout(()=>{const e=$('#fbMsg'); if(e) e.focus();},60);
+}
+async function submitFeedback(){
+  const msg=($('#fbMsg')?.value||'').trim();
+  if(msg.length<3){ toast('Tulis pesanmu dulu ya'); return; }
+  if(!(CLOUD_ENABLED && currentUser)){ toast('Fitur ini butuh login & koneksi internet'); return; }
+  const btn=$('[data-act="submit-feedback"]'); if(btn){ btn.disabled=true; btn.innerHTML='<span class="spin"></span>'; }
+  try{
+    const {error}=await sb.from('feedback').insert({ user_id:currentUser.id, user_email:currentUser.email||'', type:fbType, message:msg });
+    if(error) throw error;
+    const p=$('#feedbackPanel'); if(p) p.classList.remove('open');
+    fbType='bug';
+    toast('Terima kasih! Laporanmu terkirim 🙌');
+  }catch(e){
+    const m=(e&&e.message)||'';
+    toast(/relation|does not exist|table|schema cache|could not find/i.test(m)?'Fitur belum aktif — admin perlu menjalankan SQL feedback.':'Gagal mengirim, coba lagi.');
+    if(btn){ btn.disabled=false; btn.textContent='Kirim'; }
+  }
+}
+/* ===== Lapor / Masukan: daftar di konsol admin ===== */
+async function loadFeedback(){
+  const box=$('#feedbackAdmin'); if(!box) return;
+  try{
+    const {data,error}=await sb.from('feedback').select('*').order('created_at',{ascending:false});
+    if(error) throw error;
+    if(!data || !data.length){ box.innerHTML='<p class="adm-note" style="margin:0">Belum ada laporan masuk.</p>'; return; }
+    const baru=data.filter(f=>f.status!=='selesai').length;
+    box.innerHTML=(baru?`<p class="adm-note" style="margin:0 0 10px">${baru} laporan belum ditangani</p>`:'')+data.map(fbRow).join('');
+  }catch(e){
+    const m=(e&&e.message)||'';
+    box.innerHTML='<p class="adm-note" style="margin:0;color:#be123c">'+(/relation|does not exist|table|schema cache|could not find/i.test(m)?'Tabel feedback belum dibuat. Jalankan SQL feedback di Supabase.':'Gagal memuat laporan.')+'</p>';
+  }
+}
+function fbRow(f){
+  const t={bug:['#FFF1F3','#be123c','🐞 Bug'],saran:['#EEF0FF','#5b4bd6','💡 Saran'],lainnya:['#F1F0F4','#666','💬 Lainnya']}[f.type]||['#F1F0F4','#666','💬 '+esc(f.type||'')];
+  const done=f.status==='selesai';
+  return `<div class="fb-item${done?' fb-done':''}">
+    <div class="fb-item-top">
+      <span class="st-badge" style="background:${t[0]};color:${t[1]}">${t[2]}</span>
+      <span class="fb-meta">${esc(displayUser(f.user_email)||'pengguna')} · ${shortDate(f.created_at)}${done?' · ✅ selesai':''}</span>
+    </div>
+    <div class="fb-msg">${esc(f.message||'')}</div>
+    <div class="fb-acts">
+      ${done?`<button class="btn btn-ghost" data-act="fb-reopen" data-id="${f.id}" style="padding:6px 11px">↩ Buka lagi</button>`:`<button class="btn btn-pri" data-act="fb-resolve" data-id="${f.id}" style="padding:6px 11px">✓ Tandai selesai</button>`}
+      <button class="btn btn-danger" data-act="fb-delete" data-id="${f.id}" style="padding:6px 11px">Hapus</button>
+    </div>
+  </div>`;
+}
+async function fbResolve(id){ try{ await sb.from('feedback').update({status:'selesai'}).eq('id',id); }catch(e){ console.error(e); } loadFeedback(); }
+async function fbReopen(id){ try{ await sb.from('feedback').update({status:'baru'}).eq('id',id); }catch(e){ console.error(e); } loadFeedback(); }
+async function fbDelete(id){ if(!confirm('Hapus laporan ini?')) return; try{ await sb.from('feedback').delete().eq('id',id); }catch(e){ console.error(e); } loadFeedback(); }
 function musicToggle(){ if(musicPlaying){ musicStop(); renderPersona(); } else { musicStart(); } }
 
 /* ============================================================ BOOT ============================================================ */
@@ -2344,6 +2438,10 @@ function enterAdminConsole(){
         <div id="adminList">Memuat…</div>
       </div>
       <div class="adm-card">
+        <div class="adm-card-h"><h2>📣 Laporan &amp; Masukan</h2><button class="btn btn-ghost" data-act="refresh-feedback" style="padding:7px 12px">↻ Muat ulang</button></div>
+        <div id="feedbackAdmin">Memuat…</div>
+      </div>
+      <div class="adm-card">
         <div class="adm-card-h"><h2>📢 Pengumuman Global</h2></div>
         <p class="adm-note">Pesan ini tampil sebagai banner di aplikasi <b>semua pengguna</b>. Kosongkan atau matikan untuk menyembunyikan.</p>
         <textarea id="annText" class="ann-text" placeholder="Tulis pengumuman… (mis. Pemeliharaan Minggu 22.00–23.00)"></textarea>
@@ -2360,6 +2458,7 @@ function enterAdminConsole(){
   if(sIn) sIn.addEventListener('input',renderAdminList);
   if(sSort) sSort.addEventListener('change',renderAdminList);
   loadAdminUsers();
+  loadFeedback();
   loadAnnounceEditor();
 }
 async function exportAllAccounts(){

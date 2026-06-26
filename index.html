@@ -1481,16 +1481,45 @@ async function generatePdf(){
   await new Promise(r=>setTimeout(r,350));   // beri waktu font & layout siap
   try{
     const stage=$('#pdfStage');
-    const canvas=await html2canvas(stage,{scale:2,backgroundColor:'#FFF9F4',useCORS:true,logging:false});
-    const img=canvas.toDataURL('image/jpeg',0.92);
+    const scale=2;
+    const canvas=await html2canvas(stage,{scale,backgroundColor:'#FFF9F4',useCORS:true,logging:false});
+    const cw=canvas.width, chTotal=canvas.height;
+    const pageCanvasPx=Math.floor(cw*297/210);   // tinggi 1 halaman A4 dalam piksel kanvas
+
+    // Kumpulkan "batas aman" = bagian bawah tiap blok yang TIDAK boleh terpotong
+    const stageTop=stage.getBoundingClientRect().top;
+    const blocks=stage.querySelectorAll('.pdf-hero,.pdf-stats,.pdf-row,.pdf-total,.pdf-prog,.pdf-phase,.pdf-empty,.pdf-foot');
+    const cuts=[];
+    blocks.forEach(el=>{
+      const bottom=(el.getBoundingClientRect().bottom-stageTop)*scale;
+      cuts.push(Math.min(chTotal,Math.round(bottom)));
+    });
+    cuts.push(chTotal);
+    const safe=[...new Set(cuts)].sort((a,b)=>a-b);
+
     const {jsPDF}=window.jspdf;
     const pdf=new jsPDF('p','mm','a4');
-    const pw=210, ph=297;
-    const iw=pw, ih=canvas.height*pw/canvas.width;
-    let left=ih, pos=0;
-    pdf.addImage(img,'JPEG',0,0,iw,ih,'recap','FAST');
-    left-=ph;
-    while(left>0){ pos=left-ih; pdf.addPage(); pdf.addImage(img,'JPEG',0,pos,iw,ih,'recap','FAST'); left-=ph; }
+    let y0=0, first=true, guard=0;
+    while(y0<chTotal-1 && guard++<60){
+      let y1=y0+pageCanvasPx;
+      if(y1<chTotal){
+        let best=-1;
+        for(const c of safe){ if(c>y0+10 && c<=y1) best=c; }   // batas aman terbesar yg muat
+        if(best>y0) y1=best;                                    // potong di gap antar-baris
+      }else y1=chTotal;
+      const sliceH=y1-y0;
+      const pc=document.createElement('canvas');
+      pc.width=cw; pc.height=sliceH;
+      const ctx=pc.getContext('2d');
+      ctx.fillStyle='#FFF9F4'; ctx.fillRect(0,0,cw,sliceH);
+      ctx.drawImage(canvas,0,y0,cw,sliceH,0,0,cw,sliceH);
+      const img=pc.toDataURL('image/jpeg',0.92);
+      const imgH=sliceH*210/cw;   // tinggi gambar dalam mm (≤297)
+      if(!first) pdf.addPage();
+      pdf.setFillColor(255,249,244); pdf.rect(0,0,210,297,'F');
+      pdf.addImage(img,'JPEG',0,0,210,imgH,undefined,'FAST');
+      first=false; y0=y1;
+    }
     const fn=`pernikahan-${(state.settings.partner1||'mempelai')}-${(state.settings.partner2||'pasangan')}.pdf`.toLowerCase().replace(/[^a-z0-9-]+/g,'-');
     pdf.save(fn);
     toast('PDF tersimpan 📄');

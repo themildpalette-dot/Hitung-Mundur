@@ -416,6 +416,31 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
 .ad-stat b{font-size:15px;color:var(--ink)}
 .ad-line{font-size:12.5px;color:var(--ink);padding:7px 4px;border-bottom:1px solid var(--line)}
 
+/* ---------- konsol admin penuh ---------- */
+.admin-app{display:none}
+body.admin-mode .admin-app{display:block;min-height:100vh}
+body.admin-mode .topbar,
+body.admin-mode #localBanner,
+body.admin-mode #hero,
+body.admin-mode .tabs,
+body.admin-mode #view,
+body.admin-mode #appFoot{display:none!important}
+.adm-top{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 18px;background:rgba(255,246,240,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.adm-brand{display:flex;align-items:center;gap:11px}
+.adm-brand .ring{width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:linear-gradient(135deg,var(--rose),var(--coral));font-size:20px;box-shadow:0 6px 16px rgba(255,77,141,.32)}
+.adm-brand b{display:block;font-family:'Fraunces',serif;font-size:17px;color:var(--ink);line-height:1.12}
+.adm-brand small{font-size:11.5px;color:var(--ink-soft)}
+.adm-top-acts{display:flex;gap:8px}
+.adm-wrap{max-width:780px;margin:0 auto;padding:22px 16px 64px;display:flex;flex-direction:column;gap:16px}
+.adm-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:10px}
+.adm-stat{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--c,var(--rose));border-radius:14px;padding:14px 10px;text-align:center;box-shadow:0 4px 14px rgba(67,35,58,.04)}
+.adm-stat b{display:block;font-family:'Fraunces',serif;font-size:25px;color:var(--ink);line-height:1}
+.adm-stat span{font-size:11px;color:var(--ink-soft);font-weight:600;margin-top:5px;display:block}
+.adm-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 6px 20px rgba(67,35,58,.05)}
+.adm-card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.adm-card-h h2{font-family:'Fraunces',serif;font-size:18px;color:var(--ink);margin:0}
+.adm-note{font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin:0 0 12px}
+
 /* ---------- footer ---------- */
 .appfoot{max-width:1180px;margin:0 auto;padding:6px 24px 48px;text-align:center;color:var(--ink-soft)}
 .appfoot .ft-line{width:42px;height:3px;border-radius:3px;background:var(--grad);margin:0 auto 14px;opacity:.65}
@@ -495,6 +520,7 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
 
 <div class="boot" id="boot"><div class="boot-in"><div class="ring">💍</div><div class="spin-d"></div><p>Memuat…</p></div></div>
 <div class="auth" id="auth"></div>
+<div class="admin-app" id="adminApp"></div>
 <header class="topbar">
   <div class="brand">
     <div class="ring" id="monogram">A</div>
@@ -1147,7 +1173,6 @@ function settingsModal(){
     <div class="modal-body">
       ${accountSectionHTML()}
       ${changePassSectionHTML()}
-      ${adminSectionHTML()}
       <div class="mrow">
         <div class="mfield"><label>Nama Mempelai 1</label><input id="f-p1" value="${esc(s.partner1)}" placeholder="Andi"></div>
         <div class="mfield"><label>Nama Mempelai 2</label><input id="f-p2" value="${esc(s.partner2)}" placeholder="Bunga"></div>
@@ -1533,6 +1558,7 @@ document.addEventListener('click',e=>{
     case 'reject-user': rejectUser(id); break;
     case 'export-all': exportAllAccounts(); break;
     case 'view-account': viewAccount(id); break;
+    case 'refresh-admin': loadAdminUsers(); break;
     case 'change-pass': changePassModal(); break;
     case 'submit-change-pass': submitChangePass(); break;
     case 'dismiss-banner': $('#localBanner').innerHTML=''; break;
@@ -1657,7 +1683,7 @@ function renderAuth(){
     </div>`;
   ['au-email','au-pass'].forEach(id=>{const e=$('#'+id);if(e)e.addEventListener('keydown',ev=>{if(ev.key==='Enter')authSubmit();});});
 }
-function showAuth(){ $('#auth').classList.add('show'); renderAuth(); setTimeout(()=>{const e=$('#au-email');if(e)e.focus();},60); }
+function showAuth(){ document.body.classList.remove('admin-mode'); $('#auth').classList.add('show'); renderAuth(); setTimeout(()=>{const e=$('#au-email');if(e)e.focus();},60); }
 function hideAuth(){ $('#auth').classList.remove('show'); }
 function switchAuthMode(m){ authMode=m; renderAuth(); }
 function authError(msg){ const e=$('#au-err'); if(e){ e.textContent=msg; e.classList.add('show'); } }
@@ -1890,6 +1916,7 @@ function applyBranding(){
 }
 function hideBoot(){ const b=$('#boot'); if(b) b.style.display='none'; }
 function enterApp(){
+  document.body.classList.remove('admin-mode');
   hideBoot(); hideAuth();
   renderHero(); renderTabs(); renderView(); applyBranding();
   setSync(CLOUD_ENABLED ? 'saved' : 'local');
@@ -1936,9 +1963,11 @@ async function handleAuth(event,session){
       try{
         await fetchProfile();
         if(userStatus!=='approved'){ hideBoot(); (userStatus==='rejected'?showRejectedScreen:showPendingScreen)(); return; }
+        if(isAdmin){ enterAdminConsole(); return; }
         await resolveActiveWedding(); await cloudLoad(); subscribeRealtime();
       }catch(e){ console.error(e); }
     }else if(userStatus!=='approved'){ hideBoot(); (userStatus==='rejected'?showRejectedScreen:showPendingScreen)(); return; }
+    else if(isAdmin){ enterAdminConsole(); return; }
     enterApp();
   }else{
     currentUser=null;
@@ -1984,7 +2013,10 @@ function showRejectedScreen(){
 }
 async function recheckStatus(){
   await fetchProfile();
-  if(userStatus==='approved'){ try{ await resolveActiveWedding(); await cloudLoad(); subscribeRealtime(); }catch(e){ console.error(e); } enterApp(); }
+  if(userStatus==='approved'){
+    if(isAdmin){ enterAdminConsole(); return; }
+    try{ await resolveActiveWedding(); await cloudLoad(); subscribeRealtime(); }catch(e){ console.error(e); } enterApp();
+  }
   else if(userStatus==='rejected'){ showRejectedScreen(); }
   else { toast('Masih menunggu persetujuan admin'); }
 }
@@ -1992,21 +2024,33 @@ function adminSectionHTML(){
   if(!CLOUD_ENABLED || !currentUser || !isAdmin) return '';
   return `<button class="btn btn-pri btn-block" data-act="admin-panel" style="margin:0 0 4px">👑 Panel Admin — Kelola Pengguna</button>`;
 }
-function adminPanel(){
-  openModal(`<div class="modal-head"><h3>Panel Admin</h3><button class="modal-x" data-act="close">✕</button></div>
-    <div class="modal-body">
-      <p style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;line-height:1.5">Kelola pengguna &amp; data. Pendaftar yang menunggu belum bisa memakai aplikasi sampai kamu setujui. Klik <b>Lihat</b> untuk membaca isi sebuah akun.</p>
-      <div id="adminList">Memuat…</div>
-      <div class="settings-divider"></div>
-      <div class="danger-zone" style="color:var(--grape)">Data &amp; Cadangan</div>
-      <button class="btn btn-pri btn-block" data-act="export-all" style="margin:0 0 8px">⬇ Ekspor Semua Akun</button>
-      <div class="modal-foot" style="margin-top:0">
-        <button class="btn btn-ghost" style="flex:1" data-act="export-data">⬇ Ekspor Akunku</button>
-        <button class="btn btn-ghost" style="flex:1" data-act="import-data">⬆ Impor</button>
-        <button class="btn btn-danger" data-act="reset-data">Reset</button>
+function adminPanel(){ enterAdminConsole(); }
+function enterAdminConsole(){
+  document.body.classList.add('admin-mode');
+  hideBoot(); hideAuth();
+  if(rtChannel){ try{ sb.removeChannel(rtChannel); }catch(e){} rtChannel=null; }
+  const box=$('#adminApp'); if(!box) return;
+  box.innerHTML=`
+    <header class="adm-top">
+      <div class="adm-brand"><div class="ring">🛡️</div><div><b>Konsol Admin</b><small>${esc(APP_NAME)}</small></div></div>
+      <div class="adm-top-acts">
+        <button class="btn btn-ghost" data-act="change-pass" style="padding:8px 13px">🔑 Sandi</button>
+        <button class="btn btn-ghost" data-act="logout" style="padding:8px 13px">Keluar</button>
       </div>
-      <p style="font-size:11.5px;color:var(--ink-soft);margin-top:10px;line-height:1.5"><b>Ekspor Semua Akun</b> mengunduh cadangan seluruh data pengguna. Tombol di bawahnya hanya untuk akunmu sendiri.</p>
-    </div>`);
+    </header>
+    <div class="adm-wrap">
+      <div id="admStats" class="adm-stats"></div>
+      <div class="adm-card">
+        <div class="adm-card-h"><h2>Kelola Pengguna</h2><button class="btn btn-ghost" data-act="refresh-admin" style="padding:7px 12px">↻ Muat ulang</button></div>
+        <p class="adm-note" style="margin-bottom:14px">Setujui pendaftar baru, atau klik <b>Lihat</b> untuk membaca isi sebuah akun.</p>
+        <div id="adminList">Memuat…</div>
+      </div>
+      <div class="adm-card">
+        <div class="adm-card-h"><h2>Data &amp; Cadangan</h2></div>
+        <p class="adm-note">Unduh cadangan seluruh data pengguna sebagai satu berkas JSON.</p>
+        <button class="btn btn-pri btn-block" data-act="export-all">⬇ Ekspor Semua Akun</button>
+      </div>
+    </div>`;
   loadAdminUsers();
 }
 async function exportAllAccounts(){
@@ -2030,7 +2074,7 @@ async function exportAllAccounts(){
 async function viewAccount(id){
   openModal(`<div class="modal-head"><h3>Detail Akun</h3><button class="modal-x" data-act="close">✕</button></div>
     <div class="modal-body"><div id="acctDetail">Memuat…</div>
-    <button class="btn btn-ghost btn-block" data-act="admin-panel" style="margin-top:16px">← Kembali ke Panel Admin</button></div>`);
+    <button class="btn btn-ghost btn-block" data-act="close" style="margin-top:16px">← Kembali</button></div>`);
   const box=$('#acctDetail'); if(!box) return;
   try{
     const [{data:w,error:we},{data:p}]=await Promise.all([
@@ -2067,17 +2111,27 @@ async function loadAdminUsers(){
   try{
     const {data,error}=await sb.from('profiles').select('id,email,status,is_admin,created_at').order('created_at',{ascending:false});
     if(error) throw error;
-    if(!data || !data.length){ box.innerHTML='<p class="pdf-empty">Belum ada pengguna.</p>'; return; }
-    const pending=data.filter(u=>u.status==='pending');
-    const others=data.filter(u=>u.status!=='pending');
+    const all=data||[];
+    const pending=all.filter(u=>u.status==='pending');
+    const approved=all.filter(u=>u.status==='approved');
+    const rejected=all.filter(u=>u.status==='rejected');
+    const stats=$('#admStats');
+    if(stats) stats.innerHTML =
+      admStat('Total', all.length, 'grape')
+      + admStat('Menunggu', pending.length, 'coral')
+      + admStat('Disetujui', approved.length, 'mint')
+      + admStat('Ditolak', rejected.length, 'rose');
+    if(!all.length){ box.innerHTML='<p class="pdf-empty">Belum ada pengguna.</p>'; return; }
+    const others=all.filter(u=>u.status!=='pending');
     box.innerHTML =
       (pending.length
         ? `<div class="admin-h">Menunggu Persetujuan (${pending.length})</div>`+pending.map(adminRow).join('')
-        : `<div class="warn" style="background:#E6Faf5;color:#0f9d7a;border-color:#BFEFE2;margin-top:0">✅ Tidak ada yang menunggu persetujuan.</div>`)
-      + `<div class="admin-h" style="margin-top:18px">Semua Pengguna (${data.length})</div>`
+        : `<div class="warn" style="background:#E6Faf5;color:#0f9d7a;border-color:#BFEFE2;margin:0 0 4px">✅ Tidak ada yang menunggu persetujuan.</div>`)
+      + `<div class="admin-h" style="margin-top:18px">Semua Pengguna (${all.length})</div>`
       + others.map(adminRow).join('');
   }catch(e){ console.error(e); box.innerHTML='<div class="warn">Gagal memuat. Pastikan SQL panel admin sudah dijalankan di Supabase.</div>'; }
 }
+function admStat(label,n,color){ return `<div class="adm-stat" style="--c:var(--${color})"><b>${n}</b><span>${label}</span></div>`; }
 function adminRow(u){
   const m={pending:['#FFF4E5','#c2691b','Menunggu'],approved:['#E6Faf5','#0f9d7a','Disetujui'],rejected:['#FFF1F3','#be123c','Ditolak']}[u.status]||['#F1F0F4','#666',u.status];
   const me=u.id===currentUser.id;

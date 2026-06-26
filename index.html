@@ -480,10 +480,13 @@ body.admin-mode #appFoot{display:none!important}
 .ann-text{width:100%;min-height:72px;resize:vertical;border:1px solid var(--line);border-radius:12px;padding:11px 13px;font:inherit;font-size:13.5px;color:var(--ink);background:#FBF3F7}
 .ann-toggle{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--ink);font-weight:600;cursor:pointer}
 .ann-toggle input{width:17px;height:17px;accent-color:var(--rose)}
-.ann-bar{display:flex;align-items:center;gap:10px;margin:10px 16px 0;padding:11px 14px;background:linear-gradient(135deg,#FFF4E5,#FFE7D2);border:1px solid #FAD7B3;border-radius:13px;color:#8a5a1a}
-.ann-ic{font-size:16px;flex:0 0 auto}
-.ann-msg{flex:1;font-size:13px;line-height:1.45;font-weight:600;white-space:pre-wrap}
-.ann-x{flex:0 0 auto;border:none;background:rgba(138,90,26,.13);color:#8a5a1a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:11px;line-height:1}
+.ann-bar{display:flex;align-items:center;gap:11px;margin:12px clamp(16px,4vw,40px) 0;padding:13px 15px;background:#2B2540;border:1px solid #1C1730;border-left:5px solid #FFC83D;border-radius:13px;color:#fff;box-shadow:0 8px 22px rgba(43,37,64,.30);animation:annIn .35s ease}
+@keyframes annIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes annPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+.ann-ic{font-size:18px;flex:0 0 auto;animation:annPulse 2s ease-in-out infinite}
+.ann-msg{flex:1;font-size:13.5px;line-height:1.45;font-weight:600;white-space:pre-wrap;color:#fff}
+.ann-x{flex:0 0 auto;border:none;background:rgba(255,255,255,.16);color:#fff;width:25px;height:25px;border-radius:50%;cursor:pointer;font-size:12px;line-height:1;transition:.15s}
+.ann-x:hover{background:rgba(255,255,255,.30)}
 
 /* ---------- footer ---------- */
 .appfoot{max-width:1180px;margin:0 auto;padding:6px 24px 48px;text-align:center;color:var(--ink-soft)}
@@ -2044,7 +2047,7 @@ function renderPersona(){
         <button class="mus-play" data-act="music-toggle">${musicPlaying?'⏸ Jeda':'▶ Putar'}</button>
         <input type="range" id="musVol" class="mus-vol" min="0" max="100" value="${Math.round(musicVol*100)}" aria-label="Volume">
       </div>
-      <p class="persona-note">🎵 ${esc(MUSIC_TITLE)}</p>
+      <p class="persona-note" style="text-align:center;font-size:18px;margin-top:12px">🎵</p>
     </div>` : '';
   p.innerHTML=`
     <div class="persona-h"><b>✨ Personalisasi</b><button class="persona-x" data-act="toggle-personalize" aria-label="Tutup">✕</button></div>

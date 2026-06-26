@@ -357,9 +357,6 @@ body.admin-mode .fab,body.admin-mode .persona{display:none!important}
 .sw-lbl{position:absolute;left:0;right:0;bottom:0;font-size:9px;font-weight:800;color:#fff;background:rgba(0,0,0,.24);padding:2px 0;text-align:center;letter-spacing:.2px}
 .sw.on .sw-lbl{padding-bottom:1px}
 .sw.on::after{content:"✓";position:absolute;top:5px;right:6px;color:#fff;font-weight:800;font-size:13px;text-shadow:0 1px 3px rgba(0,0,0,.35)}
-.trk-row{display:flex;gap:6px;margin-bottom:11px}
-.trk{flex:1;padding:8px 4px;border-radius:10px;background:rgba(67,35,58,.05);border:1px solid var(--line);font-size:12px;font-weight:700;color:var(--ink-soft);transition:.15s}
-.trk.on{background:var(--rose);color:#fff;border-color:transparent}
 .mus-ctl{display:flex;align-items:center;gap:11px}
 .mus-play{padding:9px 15px;border-radius:11px;background:var(--grad);color:#fff;font-weight:800;font-size:13px;white-space:nowrap;box-shadow:var(--sh-1)}
 .mus-vol{flex:1;min-width:0;accent-color:var(--rose)}
@@ -608,6 +605,11 @@ body.admin-mode #appFoot{display:none!important}
 
 const KEY = 'wedding:data';
 const APP_NAME = 'Big Day Loading…';
+// ====== MUSIK LATAR (1 lagu) ======
+// Unggah file lagu ke repo (mis. taruh "lagu.mp3" di folder yang sama dengan index.html),
+// lalu tulis nama berkas / URL-nya di bawah ini. Kosongkan ('') untuk menyembunyikan musik.
+const MUSIC_URL   = 'lagu.mp3';
+const MUSIC_TITLE = 'Lagu Kami';
 const AUTH_DOMAIN = 'bigdayloading.app'; // identitas internal utk login berbasis nama pengguna — tidak pernah ditampilkan
 // nama pengguna → identitas internal; bila input sudah berupa email (akun lama) dipakai apa adanya
 function toAuthEmail(input){
@@ -1614,7 +1616,6 @@ document.addEventListener('click',e=>{
     case 'dismiss-announce': announceDismissed=true; { const b=$('#announceBar'); if(b) b.innerHTML=''; } break;
     case 'toggle-personalize': togglePersona(); break;
     case 'set-theme': setTheme(t.dataset.theme); break;
-    case 'set-track': setTrack(t.dataset.track); break;
     case 'music-toggle': musicToggle(); break;
     case 'change-pass': changePassModal(); break;
     case 'submit-change-pass': submitChangePass(); break;
@@ -1981,7 +1982,6 @@ function enterApp(){
   renderLocalBanner();
   if(CLOUD_ENABLED) loadAnnouncement();
   applyTheme(state.settings.theme);
-  if(state.settings.musicTrack && TRACKS[state.settings.musicTrack]) musicTrack=state.settings.musicTrack;
   if(!welcomed && state.settings.partner1==='Mempelai' && state.settings.partner2==='Pasangan'){
     welcomed=true; setTimeout(()=>toast('Selamat datang! Klik ⚙ untuk atur nama & tanggal 💍'),700);
   }
@@ -2006,71 +2006,29 @@ function applyTheme(id){
   currentTheme = (id in THEMES) ? id : 'blush';
 }
 
-/* ============================================================ PERSONALISASI: MUSIK AMBIENT (Web Audio) ============================================================ */
-let AC=null, masterGain=null, delayNode=null, delayGain=null, musicTimer=null, musicPlaying=false, musicTrack='romantis', musicVol=0.5, chordIdx=0;
-const TRACKS={
-  romantis:{name:'Romantis', sec:4.2, wave:'sine',     mel:0.7,  chords:[[48,52,55,59],[45,48,52,55],[41,45,48,52],[43,47,50,53]], scale:[72,74,76,79,81]},
-  tenang:  {name:'Tenang',   sec:6.0, wave:'sine',     mel:0.45, chords:[[45,52,57,60],[41,48,53,57],[38,45,50,53],[40,47,52,55]], scale:[69,72,74,76,79]},
-  ceria:   {name:'Ceria',    sec:3.2, wave:'triangle', mel:0.85, chords:[[50,54,57],[55,59,62],[57,61,64],[59,62,66]],             scale:[74,76,78,81,83]}
-};
-function mtof(m){ return 440*Math.pow(2,(m-69)/12); }
+/* ============================================================ PERSONALISASI: MUSIK (1 lagu) ============================================================ */
+let bgAudio=null, musicPlaying=false, musicVol=0.6;
 function musicEnsure(){
-  if(AC) return;
-  AC=new (window.AudioContext||window.webkitAudioContext)();
-  masterGain=AC.createGain(); masterGain.gain.value=0; masterGain.connect(AC.destination);
-  delayNode=AC.createDelay(1.0); delayNode.delayTime.value=0.38;
-  delayGain=AC.createGain(); delayGain.gain.value=0.26;
-  delayNode.connect(delayGain); delayGain.connect(delayNode); delayGain.connect(masterGain);
+  if(bgAudio) return bgAudio;
+  bgAudio=new Audio();
+  bgAudio.src=MUSIC_URL;
+  bgAudio.loop=true;
+  bgAudio.preload='none';
+  bgAudio.volume=musicVol;
+  bgAudio.addEventListener('play',()=>{ musicPlaying=true; });
+  bgAudio.addEventListener('pause',()=>{ musicPlaying=false; });
+  bgAudio.addEventListener('error',()=>{ musicPlaying=false; toast('Lagu belum bisa diputar. Pastikan file musik sudah diunggah ke repo.'); renderPersona(); });
+  return bgAudio;
 }
-function playChord(notes,dur,wave){
-  const t=AC.currentTime, peak=0.15/notes.length;
-  notes.forEach(m=>{
-    const o=AC.createOscillator(), g=AC.createGain();
-    o.type=wave; o.frequency.value=mtof(m);
-    g.gain.setValueAtTime(0.0001,t);
-    g.gain.linearRampToValueAtTime(peak, t+dur*0.35);
-    g.gain.linearRampToValueAtTime(0.0001, t+dur);
-    o.connect(g); g.connect(masterGain); g.connect(delayNode);
-    o.start(t); o.stop(t+dur+0.06);
-  });
+async function musicStart(){
+  if(!MUSIC_URL){ toast('Musik belum diatur.'); return; }
+  musicEnsure(); bgAudio.volume=musicVol;
+  try{ await bgAudio.play(); musicPlaying=true; }
+  catch(e){ musicPlaying=false; toast('Tidak bisa memutar musik. Coba lagi.'); }
+  renderPersona();
 }
-function playNote(m,dur,wave){
-  const t=AC.currentTime;
-  const o=AC.createOscillator(), g=AC.createGain();
-  o.type=wave; o.frequency.value=mtof(m);
-  g.gain.setValueAtTime(0.0001,t);
-  g.gain.linearRampToValueAtTime(0.11, t+0.05);
-  g.gain.exponentialRampToValueAtTime(0.0008, t+dur);
-  o.connect(g); g.connect(delayNode); g.connect(masterGain);
-  o.start(t); o.stop(t+dur+0.06);
-}
-function musicTick(){
-  if(!musicPlaying) return;
-  const tr=TRACKS[musicTrack]||TRACKS.romantis;
-  playChord(tr.chords[chordIdx % tr.chords.length], tr.sec, tr.wave);
-  if(Math.random()<tr.mel){
-    const n=tr.scale[Math.floor(Math.random()*tr.scale.length)];
-    setTimeout(()=>{ if(musicPlaying) playNote(n, tr.sec*0.5, tr.wave==='sine'?'triangle':'sine'); }, tr.sec*250);
-    if(Math.random()<0.4) setTimeout(()=>{ if(musicPlaying) playNote(tr.scale[Math.floor(Math.random()*tr.scale.length)], tr.sec*0.4,'sine'); }, tr.sec*620);
-  }
-  chordIdx++;
-  musicTimer=setTimeout(musicTick, tr.sec*1000);
-}
-async function musicStart(track){
-  musicEnsure();
-  try{ if(AC.state==='suspended') await AC.resume(); }catch(e){}
-  if(track) musicTrack=track;
-  musicPlaying=true; chordIdx=0;
-  masterGain.gain.cancelScheduledValues(AC.currentTime);
-  masterGain.gain.setTargetAtTime(musicVol, AC.currentTime, 0.6);
-  clearTimeout(musicTimer); musicTick();
-}
-function musicStop(){
-  musicPlaying=false;
-  if(AC && masterGain){ masterGain.gain.cancelScheduledValues(AC.currentTime); masterGain.gain.setTargetAtTime(0, AC.currentTime, 0.4); }
-  clearTimeout(musicTimer);
-}
-function musicSetVolume(v){ musicVol=Math.max(0,Math.min(1,v)); if(AC && masterGain && musicPlaying) masterGain.gain.setTargetAtTime(musicVol, AC.currentTime, 0.2); }
+function musicStop(){ if(bgAudio) bgAudio.pause(); musicPlaying=false; }
+function musicSetVolume(v){ musicVol=Math.max(0,Math.min(1,v)); if(bgAudio) bgAudio.volume=musicVol; }
 
 /* ============================================================ PERSONALISASI: PANEL ============================================================ */
 function renderPersona(){
@@ -2079,28 +2037,27 @@ function renderPersona(){
     const t=THEMES[id];
     return `<button class="sw${id===currentTheme?' on':''}" data-act="set-theme" data-theme="${id}" title="${t.label}" style="background:linear-gradient(135deg,${t.rose},${t.coral} 60%,${t.gold})"><span class="sw-lbl">${t.label}</span></button>`;
   }).join('');
-  const tracks=Object.keys(TRACKS).map(id=>`<button class="trk${id===musicTrack?' on':''}" data-act="set-track" data-track="${id}">${TRACKS[id].name}</button>`).join('');
+  const musicSec = MUSIC_URL ? `
+    <div class="persona-sec">
+      <div class="persona-lbl">Musik</div>
+      <div class="mus-ctl">
+        <button class="mus-play" data-act="music-toggle">${musicPlaying?'⏸ Jeda':'▶ Putar'}</button>
+        <input type="range" id="musVol" class="mus-vol" min="0" max="100" value="${Math.round(musicVol*100)}" aria-label="Volume">
+      </div>
+      <p class="persona-note">🎵 ${esc(MUSIC_TITLE)}</p>
+    </div>` : '';
   p.innerHTML=`
     <div class="persona-h"><b>✨ Personalisasi</b><button class="persona-x" data-act="toggle-personalize" aria-label="Tutup">✕</button></div>
     <div class="persona-sec">
       <div class="persona-lbl">Tema Warna</div>
       <div class="sw-grid">${swatches}</div>
     </div>
-    <div class="persona-sec">
-      <div class="persona-lbl">Musik Latar</div>
-      <div class="trk-row">${tracks}</div>
-      <div class="mus-ctl">
-        <button class="mus-play" data-act="music-toggle">${musicPlaying?'⏸ Jeda':'▶ Putar'}</button>
-        <input type="range" id="musVol" class="mus-vol" min="0" max="100" value="${Math.round(musicVol*100)}" aria-label="Volume">
-      </div>
-      <p class="persona-note">Musik ambient dibuat langsung di aplikasi — tanpa unduhan. Putar untuk suasana lebih syahdu 💕</p>
-    </div>`;
+    ${musicSec}`;
   const v=$('#musVol'); if(v) v.addEventListener('input',e=>musicSetVolume((parseInt(e.target.value,10)||0)/100));
 }
 function togglePersona(){ const p=$('#personaPanel'); if(!p) return; if(p.classList.toggle('open')) renderPersona(); }
 function setTheme(id){ applyTheme(id); if(state&&state.settings){ state.settings.theme=id; save(); } renderPersona(); }
-function setTrack(id){ musicTrack=id; if(state&&state.settings){ state.settings.musicTrack=id; save(); } if(musicPlaying) musicStart(id); renderPersona(); }
-function musicToggle(){ if(musicPlaying) musicStop(); else musicStart(musicTrack); renderPersona(); }
+function musicToggle(){ if(musicPlaying){ musicStop(); renderPersona(); } else { musicStart(); } }
 
 /* ============================================================ BOOT ============================================================ */
 (async function boot(){

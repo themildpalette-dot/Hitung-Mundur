@@ -398,6 +398,24 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
 .acct .info b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .acct .info span{font-size:11.5px;color:#0f9d7a;font-weight:700}
 
+/* ---------- panel admin ---------- */
+.st-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap;align-self:flex-start}
+.admin-h{font-size:12px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.3px;margin:0 0 8px}
+.admin-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;background:#FBF3F7;border:1px solid var(--line);border-radius:11px;margin-bottom:8px}
+.admin-info{display:flex;flex-direction:column;gap:5px;min-width:0}
+.admin-info b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.admin-acts{display:flex;gap:6px;flex:0 0 auto;flex-wrap:wrap;justify-content:flex-end}
+
+/* ---------- detail akun (panel admin) ---------- */
+.acct-detail-hd{background:linear-gradient(135deg,var(--rose),var(--coral));color:#fff;border-radius:14px;padding:16px 18px;margin-bottom:14px}
+.ad-couple{font-family:'Fraunces',serif;font-size:21px;font-weight:600;line-height:1.15}
+.ad-sub{font-size:12px;opacity:.93;margin-top:4px}
+.ad-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ad-stat{background:#FBF3F7;border:1px solid var(--line);border-radius:11px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.ad-stat span{font-size:11px;color:var(--ink-soft);font-weight:600}
+.ad-stat b{font-size:15px;color:var(--ink)}
+.ad-line{font-size:12.5px;color:var(--ink);padding:7px 4px;border-bottom:1px solid var(--line)}
+
 /* ---------- footer ---------- */
 .appfoot{max-width:1180px;margin:0 auto;padding:6px 24px 48px;text-align:center;color:var(--ink-soft)}
 .appfoot .ft-line{width:42px;height:3px;border-radius:3px;background:var(--grad);margin:0 auto 14px;opacity:.65}
@@ -514,6 +532,17 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
 
 const KEY = 'wedding:data';
 const APP_NAME = 'Big Day Loading…';
+const AUTH_DOMAIN = 'bigdayloading.app'; // identitas internal utk login berbasis nama pengguna — tidak pernah ditampilkan
+// nama pengguna → identitas internal; bila input sudah berupa email (akun lama) dipakai apa adanya
+function toAuthEmail(input){
+  const v=(input||'').trim().toLowerCase();
+  return v.includes('@') ? v : v+'@'+AUTH_DOMAIN;
+}
+// tampilkan hanya nama pengguna (sembunyikan @domain internal); email asli akun lama tetap utuh
+function displayUser(email){
+  if(!email) return '';
+  return email.endsWith('@'+AUTH_DOMAIN) ? email.split('@')[0] : email;
+}
 const PALETTE = ['#FF4D8D','#FF7A59','#FFC83D','#2DD4BF','#8B5CF6'];
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
@@ -569,6 +598,7 @@ const CLOUD_ENABLED = SUPABASE_URL.startsWith('https://')
 
 let sb=null, currentUser=null, lastWriteISO=null, rtChannel=null, welcomed=false;
 let activeWeddingId=null, isWeddingOwner=true, myShareCode=null, partnerOwnerEmail='';
+let userStatus='approved', isAdmin=false;
 
 /* ---------- indikator sinkronisasi ---------- */
 function setSync(status){
@@ -1116,6 +1146,8 @@ function settingsModal(){
     <div class="modal-head"><h3>Detail Pernikahan</h3><button class="modal-x" data-act="close">✕</button></div>
     <div class="modal-body">
       ${accountSectionHTML()}
+      ${changePassSectionHTML()}
+      ${adminSectionHTML()}
       <div class="mrow">
         <div class="mfield"><label>Nama Mempelai 1</label><input id="f-p1" value="${esc(s.partner1)}" placeholder="Andi"></div>
         <div class="mfield"><label>Nama Mempelai 2</label><input id="f-p2" value="${esc(s.partner2)}" placeholder="Bunga"></div>
@@ -1138,14 +1170,6 @@ function settingsModal(){
       </div>
       ${shareSectionHTML()}
       <button class="btn btn-ghost btn-block" data-act="print-recap" style="margin-top:8px">📄 Unduh PDF Rekap</button>
-      <div class="settings-divider"></div>
-      <div class="danger-zone">Cadangan & Reset</div>
-      <div class="modal-foot" style="margin-top:0">
-        <button class="btn btn-ghost" style="flex:1" data-act="export-data">⬇ Ekspor</button>
-        <button class="btn btn-ghost" style="flex:1" data-act="import-data">⬆ Impor</button>
-        <button class="btn btn-danger" data-act="reset-data">Reset</button>
-      </div>
-      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px;line-height:1.5">Data tersimpan otomatis. Gunakan <b>Ekspor</b> untuk cadangan / memindahkan data saat di-deploy ke hosting.</p>
     </div>`);
   const bf=$('#f-budget'); bf.addEventListener('input',()=>{const d=bf.value.replace(/\D/g,'');bf.value=d?grp(parseInt(d,10)):'';});
   const pin=$('#photoInput'), pbtn=$('#photoBtn'), pdel=$('#photoDel'), pprev=$('#photoPrev');
@@ -1501,6 +1525,16 @@ document.addEventListener('click',e=>{
     case 'logout': closeModal(); logout(); break;
     case 'auth-mode': switchAuthMode(t.dataset.mode); break;
     case 'auth-submit': authSubmit(); break;
+    case 'send-reset': sendResetEmail(); break;
+    case 'submit-new-password': submitNewPassword(); break;
+    case 'recheck-status': recheckStatus(); break;
+    case 'admin-panel': adminPanel(); break;
+    case 'approve-user': approveUser(id); break;
+    case 'reject-user': rejectUser(id); break;
+    case 'export-all': exportAllAccounts(); break;
+    case 'view-account': viewAccount(id); break;
+    case 'change-pass': changePassModal(); break;
+    case 'submit-change-pass': submitChangePass(); break;
     case 'dismiss-banner': $('#localBanner').innerHTML=''; break;
     case 'close': closeModal(); break;
     case 'save-settings': saveSettings(); break;
@@ -1581,8 +1615,27 @@ function burst(x,y,n=36){
 }
 
 /* ============================================================ AUTH UI ============================================================ */
-let authMode='signin';
+let authMode='signin', recoveryMode=false;
 function renderAuth(){
+  if(authMode==='forgot'){
+    $('#auth').innerHTML=`
+    <div class="auth-card">
+      <div class="auth-hero">
+        <div class="ring">🔑</div>
+        <h1>Lupa Password</h1>
+        <p>Kami kirim link reset ke email kamu</p>
+      </div>
+      <div class="auth-body">
+        <div class="auth-err" id="au-err"></div>
+        <div class="mfield"><label>Email</label><input type="email" id="au-email" placeholder="nama@email.com" autocomplete="email"></div>
+        <button class="btn btn-pri btn-block" id="au-submit" data-act="send-reset">Kirim Link Reset</button>
+        <p class="auth-note"><a data-act="auth-mode" data-mode="signin" style="color:var(--rose);font-weight:700;cursor:pointer">← Kembali ke Masuk</a></p>
+      </div>
+    </div>`;
+    const e=$('#au-email'); if(e) e.addEventListener('keydown',ev=>{ if(ev.key==='Enter') sendResetEmail(); });
+    setTimeout(()=>{const x=$('#au-email'); if(x) x.focus();},60);
+    return;
+  }
   $('#auth').innerHTML=`
     <div class="auth-card">
       <div class="auth-hero">
@@ -1596,7 +1649,7 @@ function renderAuth(){
           <button class="${authMode==='signup'?'on':''}" data-act="auth-mode" data-mode="signup">Daftar</button>
         </div>
         <div class="auth-err" id="au-err"></div>
-        <div class="mfield"><label>Email</label><input type="email" id="au-email" placeholder="nama@email.com" autocomplete="email"></div>
+        <div class="mfield"><label>Nama Pengguna</label><input type="text" id="au-email" placeholder="mis. sanick88" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
         <div class="mfield"><label>Kata Sandi</label><input type="password" id="au-pass" placeholder="minimal 6 karakter" autocomplete="${authMode==='signup'?'new-password':'current-password'}"></div>
         <button class="btn btn-pri btn-block" id="au-submit" data-act="auth-submit">${authMode==='signup'?'Daftar':'Masuk'}</button>
         <p class="auth-note">${authMode==='signup'?'Sudah punya akun? Klik “Masuk”.':'Belum punya akun? Klik “Daftar”.'}<br>Atur anggaran, vendor, &amp; tamu — privat dan tersimpan otomatis.</p>
@@ -1608,19 +1661,78 @@ function showAuth(){ $('#auth').classList.add('show'); renderAuth(); setTimeout(
 function hideAuth(){ $('#auth').classList.remove('show'); }
 function switchAuthMode(m){ authMode=m; renderAuth(); }
 function authError(msg){ const e=$('#au-err'); if(e){ e.textContent=msg; e.classList.add('show'); } }
+
+/* ---------- reset password ---------- */
+async function sendResetEmail(){
+  const email=($('#au-email').value||'').trim();
+  if(!email){ authError('Masukkan email kamu dulu.'); return; }
+  const btn=$('#au-submit'); btn.disabled=true; btn.textContent='Mengirim…';
+  try{
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+    if(error) throw error;
+    const body=$('#auth').querySelector('.auth-body');
+    if(body) body.innerHTML=`<div style="text-align:center;padding:8px 0">
+      <div style="font-size:42px;margin-bottom:10px">📬</div>
+      <p style="font-weight:800;margin-bottom:6px">Cek email kamu</p>
+      <p style="font-size:13px;color:var(--ink-soft);line-height:1.55">Kami kirim link reset password ke <b>${esc(email)}</b>. Buka email itu lalu klik link untuk membuat password baru.</p>
+      <button class="btn btn-ghost btn-block" data-act="auth-mode" data-mode="signin" style="margin-top:18px">Kembali ke Masuk</button>
+    </div>`;
+  }catch(e){ btn.disabled=false; btn.textContent='Kirim Link Reset'; authError(translateAuthErr(e&&e.message)); }
+}
+function showResetForm(){ $('#auth').classList.add('show'); renderResetForm(); setTimeout(()=>{const e=$('#rp-pass'); if(e) e.focus();},60); }
+function renderResetForm(){
+  $('#auth').innerHTML=`
+    <div class="auth-card">
+      <div class="auth-hero">
+        <div class="ring">🔐</div>
+        <h1>Password Baru</h1>
+        <p>Buat password baru untuk akunmu</p>
+      </div>
+      <div class="auth-body">
+        <div class="auth-err" id="rp-err"></div>
+        <div class="mfield"><label>Password Baru</label><input type="password" id="rp-pass" placeholder="minimal 6 karakter" autocomplete="new-password"></div>
+        <div class="mfield"><label>Ulangi Password</label><input type="password" id="rp-pass2" placeholder="ketik ulang password" autocomplete="new-password"></div>
+        <button class="btn btn-pri btn-block" id="rp-submit" data-act="submit-new-password">Simpan Password Baru</button>
+      </div>
+    </div>`;
+  ['rp-pass','rp-pass2'].forEach(id=>{const e=$('#'+id); if(e) e.addEventListener('keydown',ev=>{ if(ev.key==='Enter') submitNewPassword(); });});
+}
+function resetError(msg){ const e=$('#rp-err'); if(e){ e.textContent=msg; e.classList.add('show'); } }
+async function submitNewPassword(){
+  const p1=$('#rp-pass').value||'', p2=$('#rp-pass2').value||'';
+  if(p1.length<6){ resetError('Password minimal 6 karakter.'); return; }
+  if(p1!==p2){ resetError('Password tidak sama, coba lagi.'); return; }
+  const btn=$('#rp-submit'); btn.disabled=true; btn.textContent='Menyimpan…';
+  try{
+    const {error}=await sb.auth.updateUser({password:p1});
+    if(error) throw error;
+    recoveryMode=false;
+    history.replaceState(null,'',location.pathname);   // bersihkan token dari URL
+    toast('Password berhasil diubah 🔐');
+    const {data:{session}}=await sb.auth.getSession();
+    if(session && session.user){ currentUser=session.user; await resolveActiveWedding(); await cloudLoad(); subscribeRealtime(); enterApp(); }
+    else { showAuth(); }
+  }catch(e){ btn.disabled=false; btn.textContent='Simpan Password Baru'; resetError(translateAuthErr(e&&e.message)); }
+}
 function translateAuthErr(m){
   m=(m||'').toLowerCase();
-  if(m.includes('invalid login')) return 'Email atau kata sandi salah.';
-  if(m.includes('already registered')) return 'Email sudah terdaftar — silakan masuk.';
-  if(m.includes('not confirmed')) return 'Email belum dikonfirmasi. Cek inbox kamu.';
+  if(m.includes('invalid login')) return 'Nama pengguna atau kata sandi salah.';
+  if(m.includes('already registered')) return 'Nama pengguna sudah dipakai. Pilih nama lain, atau klik “Masuk” bila itu akunmu.';
+  if(m.includes('not confirmed')) return 'Akun belum aktif. Minta admin matikan "Confirm email" di Supabase.';
   if(m.includes('password')) return 'Kata sandi minimal 6 karakter.';
   if(m.includes('rate limit')) return 'Terlalu banyak percobaan. Coba lagi nanti.';
   return m ? ('Gagal: '+m) : 'Terjadi kesalahan, coba lagi.';
 }
 async function authSubmit(){
-  const email=($('#au-email').value||'').trim(), pass=$('#au-pass').value||'';
-  if(!email||!pass){ authError('Email dan kata sandi wajib diisi.'); return; }
+  const uname=($('#au-email').value||'').trim(), pass=$('#au-pass').value||'';
+  if(!uname||!pass){ authError('Nama pengguna dan kata sandi wajib diisi.'); return; }
+  const isEmailInput=uname.includes('@');
+  if(authMode==='signup' && !isEmailInput){
+    if(!/^[a-z0-9._-]{3,}$/i.test(uname)){ authError('Nama pengguna minimal 3 karakter — hanya huruf, angka, titik, garis bawah, atau strip.'); return; }
+    if(!/[0-9]/.test(uname)){ authError('Nama pengguna wajib mengandung minimal 1 angka (mis. sanick88).'); return; }
+  }
   if(pass.length<6){ authError('Kata sandi minimal 6 karakter.'); return; }
+  const email=toAuthEmail(uname);
   const btn=$('#au-submit'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
   let res;
   try{
@@ -1631,19 +1743,50 @@ async function authSubmit(){
   btn.disabled=false; btn.textContent= authMode==='signup'?'Daftar':'Masuk';
   if(res.error){ authError(translateAuthErr(res.error.message)); return; }
   if(authMode==='signup' && !res.data.session){
-    authError('Akun dibuat! Cek email untuk konfirmasi, lalu Masuk. (Atau matikan "Confirm email" di Supabase untuk akses instan.)');
+    authError('Akun dibuat! Matikan "Confirm email" di Supabase agar bisa langsung masuk, lalu klik Masuk.');
     switchAuthMode('signin'); return;
   }
   // sukses → onAuthStateChange yang menampilkan app
 }
 async function logout(){ try{ await sb.auth.signOut(); }catch(e){} }
 
+/* ---------- ganti kata sandi (untuk yang sedang login) ---------- */
+function changePassSectionHTML(){
+  if(!(CLOUD_ENABLED && currentUser && userStatus==='approved')) return '';
+  return `<button class="btn btn-ghost btn-block" data-act="change-pass" style="margin:0 0 4px">🔑 Ganti Kata Sandi</button>`;
+}
+function changePassModal(){
+  openModal(`<div class="modal-head"><h3>Ganti Kata Sandi</h3><button class="modal-x" data-act="close">✕</button></div>
+    <div class="modal-body">
+      <div id="cp-err" style="display:none;background:#FFF1F3;color:#be123c;border:1px solid #FBD5DC;border-radius:10px;padding:9px 12px;font-size:12.5px;margin-bottom:12px"></div>
+      <div class="mfield"><label>Kata Sandi Baru</label><input type="password" id="cp-new" placeholder="minimal 6 karakter" autocomplete="new-password"></div>
+      <div class="mfield"><label>Ulangi Kata Sandi Baru</label><input type="password" id="cp-confirm" placeholder="ketik ulang" autocomplete="new-password"></div>
+      <button class="btn btn-pri btn-block" data-act="submit-change-pass" style="margin-top:6px">Simpan Kata Sandi Baru</button>
+    </div>`);
+  setTimeout(()=>{const e=$('#cp-new'); if(e) e.focus();},60);
+}
+function cpError(m){ const e=$('#cp-err'); if(e){ e.textContent=m; e.style.display='block'; } }
+async function submitChangePass(){
+  const a=$('#cp-new')?.value||'', b=$('#cp-confirm')?.value||'';
+  if(a.length<6){ cpError('Kata sandi minimal 6 karakter.'); return; }
+  if(a!==b){ cpError('Kedua kata sandi tidak sama.'); return; }
+  const btn=$('[data-act="submit-change-pass"]'); if(btn){ btn.disabled=true; btn.innerHTML='<span class="spin"></span>'; }
+  try{
+    const {error}=await sb.auth.updateUser({password:a});
+    if(error) throw error;
+    closeModal(); toast('Kata sandi berhasil diganti 🔑');
+  }catch(e){
+    cpError(translateAuthErr(String((e&&e.message)||e)));
+    if(btn){ btn.disabled=false; btn.textContent='Simpan Kata Sandi Baru'; }
+  }
+}
+
 function accountSectionHTML(){
   if(CLOUD_ENABLED && currentUser){
-    const em=currentUser.email||'';
+    const dn=displayUser(currentUser.email)||'?';
     return `<div class="acct">
-      <div class="av">${(em||'?').charAt(0).toUpperCase()}</div>
-      <div class="info"><b>${esc(em)}</b><span>☁️ Tersinkron di semua perangkat</span></div>
+      <div class="av">${dn.charAt(0).toUpperCase()}</div>
+      <div class="info"><b>${esc(dn)}</b><span>☁️ Tersinkron di semua perangkat</span></div>
       <button class="btn btn-ghost" data-act="logout" style="padding:9px 14px">Keluar</button>
     </div>`;
   }
@@ -1659,7 +1802,7 @@ function shareSectionHTML(){
   if(!isWeddingOwner){
     return `<div class="settings-divider"></div>
       <div class="danger-zone" style="color:var(--grape)">Pernikahan Bersama</div>
-      <div class="warn" style="background:#F3E8FF;color:#6b21a8;border-color:#E9D5FF;margin-top:0">💑 Kamu sedang mengelola pernikahan milik <b>${esc(partnerOwnerEmail||'pasangan')}</b>. Semua perubahanmu tersimpan bersama secara real-time.</div>
+      <div class="warn" style="background:#F3E8FF;color:#6b21a8;border-color:#E9D5FF;margin-top:0">💑 Kamu sedang mengelola pernikahan milik <b>${esc(displayUser(partnerOwnerEmail)||'pasangan')}</b>. Semua perubahanmu tersimpan bersama secara real-time.</div>
       <button class="btn btn-ghost btn-block" data-act="leave-wedding" style="margin-top:8px">Keluar dari pernikahan bersama</button>`;
   }
   return `<div class="settings-divider"></div>
@@ -1680,7 +1823,7 @@ async function loadMembers(){
     const {data}=await sb.from('wedding_members').select('member_id,member_email').eq('owner_id',currentUser.id);
     if(data && data.length){
       box.innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--ink-soft);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.3px">Pasangan yang bergabung (${data.length})</div>`+
-        data.map(m=>`<div class="member-row"><span>👤 ${esc(m.member_email||m.member_id.slice(0,8))}</span><button class="btn btn-danger" data-act="revoke-member" data-id="${m.member_id}" style="padding:6px 12px">Keluarkan</button></div>`).join('');
+        data.map(m=>`<div class="member-row"><span>👤 ${esc(displayUser(m.member_email)||m.member_id.slice(0,8))}</span><button class="btn btn-danger" data-act="revoke-member" data-id="${m.member_id}" style="padding:6px 12px">Keluarkan</button></div>`).join('');
     }else box.innerHTML='';
   }catch(e){ console.error(e); }
 }
@@ -1759,14 +1902,15 @@ function enterApp(){
 /* ============================================================ BOOT ============================================================ */
 (async function boot(){
   if(CLOUD_ENABLED && typeof supabase!=='undefined'){
+    if(location.hash.includes('type=recovery')) recoveryMode=true;
     sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
     // PENTING: jangan await pemanggilan Supabase langsung di dalam callback ini
     // (auth memegang lock → bisa deadlock). Tunda dengan setTimeout(0).
-    sb.auth.onAuthStateChange((event,session)=>{ setTimeout(()=>handleAuth(session),0); });
+    sb.auth.onAuthStateChange((event,session)=>{ setTimeout(()=>handleAuth(event,session),0); });
     // jaring pengaman jika callback tidak terpanggil
     setTimeout(async ()=>{
       const b=$('#boot');
-      if(b && b.style.display!=='none' && !currentUser){
+      if(b && b.style.display!=='none' && !currentUser && !recoveryMode){
         try{ const {data:{session}}=await sb.auth.getSession(); if(!session){ hideBoot(); showAuth(); } }
         catch(e){ hideBoot(); showAuth(); }
       }
@@ -1778,17 +1922,184 @@ function enterApp(){
     enterApp();
   }
 })();
-async function handleAuth(session){
+async function handleAuth(event,session){
+  if(event==='PASSWORD_RECOVERY' || recoveryMode){
+    recoveryMode=true;
+    if(session && session.user) currentUser=session.user;
+    hideBoot(); showResetForm();
+    return;
+  }
   if(session && session.user){
     const fresh = !currentUser || currentUser.id!==session.user.id;
     currentUser=session.user;
-    if(fresh){ try{ await resolveActiveWedding(); await cloudLoad(); subscribeRealtime(); }catch(e){ console.error(e); } }
+    if(fresh){
+      try{
+        await fetchProfile();
+        if(userStatus!=='approved'){ hideBoot(); (userStatus==='rejected'?showRejectedScreen:showPendingScreen)(); return; }
+        await resolveActiveWedding(); await cloudLoad(); subscribeRealtime();
+      }catch(e){ console.error(e); }
+    }else if(userStatus!=='approved'){ hideBoot(); (userStatus==='rejected'?showRejectedScreen:showPendingScreen)(); return; }
     enterApp();
   }else{
     currentUser=null;
     if(rtChannel){ sb.removeChannel(rtChannel); rtChannel=null; }
     hideBoot(); showAuth();
   }
+}
+
+/* ============================================================ APPROVAL GATE & ADMIN ============================================================ */
+async function fetchProfile(){
+  try{
+    const {data,error}=await sb.from('profiles').select('status,is_admin').eq('id',currentUser.id).maybeSingle();
+    if(error) throw error;                 // tabel belum dibuat → gate nonaktif (lihat catch)
+    userStatus = data ? (data.status||'pending') : 'pending';
+    isAdmin = data ? !!data.is_admin : false;
+  }catch(e){
+    // Jika tabel profiles belum ada (SQL belum dijalankan), jangan kunci siapa pun.
+    userStatus='approved'; isAdmin=false;
+  }
+}
+function showPendingScreen(){
+  $('#auth').classList.add('show');
+  $('#auth').innerHTML=`
+    <div class="auth-card">
+      <div class="auth-hero"><div class="ring">⏳</div><h1>Menunggu Persetujuan</h1><p>Pendaftaranmu sedang ditinjau admin</p></div>
+      <div class="auth-body">
+        <p style="text-align:center;font-size:13.5px;color:var(--ink-soft);line-height:1.6">Akun <b>${esc(displayUser(currentUser.email)||'')}</b> sudah terdaftar dan menunggu persetujuan admin. Kamu bisa masuk setelah disetujui.</p>
+        <button class="btn btn-pri btn-block" data-act="recheck-status" style="margin-top:18px">🔄 Cek Status</button>
+        <button class="btn btn-ghost btn-block" data-act="logout" style="margin-top:8px">Keluar</button>
+      </div>
+    </div>`;
+}
+function showRejectedScreen(){
+  $('#auth').classList.add('show');
+  $('#auth').innerHTML=`
+    <div class="auth-card">
+      <div class="auth-hero" style="background:linear-gradient(135deg,#be123c,#FF7A59)"><div class="ring">🚫</div><h1>Tidak Disetujui</h1><p>Pendaftaranmu tidak dapat diterima</p></div>
+      <div class="auth-body">
+        <p style="text-align:center;font-size:13.5px;color:var(--ink-soft);line-height:1.6">Maaf, akses untuk <b>${esc(displayUser(currentUser.email)||'')}</b> belum disetujui. Hubungi admin jika ini sebuah kekeliruan.</p>
+        <button class="btn btn-ghost btn-block" data-act="logout" style="margin-top:18px">Keluar</button>
+      </div>
+    </div>`;
+}
+async function recheckStatus(){
+  await fetchProfile();
+  if(userStatus==='approved'){ try{ await resolveActiveWedding(); await cloudLoad(); subscribeRealtime(); }catch(e){ console.error(e); } enterApp(); }
+  else if(userStatus==='rejected'){ showRejectedScreen(); }
+  else { toast('Masih menunggu persetujuan admin'); }
+}
+function adminSectionHTML(){
+  if(!CLOUD_ENABLED || !currentUser || !isAdmin) return '';
+  return `<button class="btn btn-pri btn-block" data-act="admin-panel" style="margin:0 0 4px">👑 Panel Admin — Kelola Pengguna</button>`;
+}
+function adminPanel(){
+  openModal(`<div class="modal-head"><h3>Panel Admin</h3><button class="modal-x" data-act="close">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;line-height:1.5">Kelola pengguna &amp; data. Pendaftar yang menunggu belum bisa memakai aplikasi sampai kamu setujui. Klik <b>Lihat</b> untuk membaca isi sebuah akun.</p>
+      <div id="adminList">Memuat…</div>
+      <div class="settings-divider"></div>
+      <div class="danger-zone" style="color:var(--grape)">Data &amp; Cadangan</div>
+      <button class="btn btn-pri btn-block" data-act="export-all" style="margin:0 0 8px">⬇ Ekspor Semua Akun</button>
+      <div class="modal-foot" style="margin-top:0">
+        <button class="btn btn-ghost" style="flex:1" data-act="export-data">⬇ Ekspor Akunku</button>
+        <button class="btn btn-ghost" style="flex:1" data-act="import-data">⬆ Impor</button>
+        <button class="btn btn-danger" data-act="reset-data">Reset</button>
+      </div>
+      <p style="font-size:11.5px;color:var(--ink-soft);margin-top:10px;line-height:1.5"><b>Ekspor Semua Akun</b> mengunduh cadangan seluruh data pengguna. Tombol di bawahnya hanya untuk akunmu sendiri.</p>
+    </div>`);
+  loadAdminUsers();
+}
+async function exportAllAccounts(){
+  toast('Menyiapkan ekspor…');
+  try{
+    const [{data:weds,error:we},{data:profs}]=await Promise.all([
+      sb.from('weddings').select('user_id,data,updated_at'),
+      sb.from('profiles').select('id,email,status,is_admin,created_at')
+    ]);
+    if(we) throw we;
+    const pmap={}; (profs||[]).forEach(p=>pmap[p.id]=p);
+    const accounts=(weds||[]).map(w=>{ const p=pmap[w.user_id]||{}; return { user_id:w.user_id, username:displayUser(p.email||''), status:p.status||'', updated_at:w.updated_at, data:w.data }; });
+    const out={ exported_at:new Date().toISOString(), app:APP_NAME, total_accounts:accounts.length, accounts };
+    const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=`bigday-semua-akun-${new Date().toISOString().slice(0,10)}.json`;
+    a.click(); URL.revokeObjectURL(a.href);
+    toast(`Ekspor selesai — ${accounts.length} akun ⬇`);
+  }catch(e){ console.error(e); toast('Gagal ekspor. Jalankan dulu kebijakan admin-read di Supabase.'); }
+}
+async function viewAccount(id){
+  openModal(`<div class="modal-head"><h3>Detail Akun</h3><button class="modal-x" data-act="close">✕</button></div>
+    <div class="modal-body"><div id="acctDetail">Memuat…</div>
+    <button class="btn btn-ghost btn-block" data-act="admin-panel" style="margin-top:16px">← Kembali ke Panel Admin</button></div>`);
+  const box=$('#acctDetail'); if(!box) return;
+  try{
+    const [{data:w,error:we},{data:p}]=await Promise.all([
+      sb.from('weddings').select('data,updated_at').eq('user_id',id).maybeSingle(),
+      sb.from('profiles').select('email,status').eq('id',id).maybeSingle()
+    ]);
+    if(we) throw we;
+    const uname=p?displayUser(p.email):id.slice(0,8);
+    if(!w || !w.data){ box.innerHTML=`<div class="warn">Akun <b>${esc(uname)}</b> belum punya data sendiri (mungkin tergabung ke pernikahan pasangan).</div>`; return; }
+    const d=w.data, st=d.settings||{};
+    const spent=(d.budget||[]).reduce((a,c)=>a+(Number(c.actual)||0),0);
+    const pax=(d.guests||[]).reduce((a,c)=>a+(Number(c.count)||0),0);
+    const doneT=(d.checklist||[]).filter(t=>t.done).length;
+    box.innerHTML=`
+      <div class="acct-detail-hd">
+        <div class="ad-couple">${esc(st.partner1||'—')} &amp; ${esc(st.partner2||'—')}</div>
+        <div class="ad-sub">${st.date?formatDateID(st.date):'Tanggal belum diatur'} · 👤 ${esc(uname)}</div>
+      </div>
+      <div class="ad-grid">
+        <div class="ad-stat"><span>Total Anggaran</span><b>${rp(Number(st.totalBudget)||0)}</b></div>
+        <div class="ad-stat"><span>Terpakai</span><b>${rp(spent)}</b></div>
+        <div class="ad-stat"><span>Vendor</span><b>${(d.vendors||[]).length}</b></div>
+        <div class="ad-stat"><span>Tamu</span><b>${(d.guests||[]).length} (${pax} org)</b></div>
+        <div class="ad-stat"><span>Checklist</span><b>${doneT}/${(d.checklist||[]).length}</b></div>
+        <div class="ad-stat"><span>Inspirasi</span><b>${(d.moodboard||[]).length}</b></div>
+      </div>
+      ${(d.vendors||[]).length?`<div class="admin-h" style="margin-top:16px">Vendor (${(d.vendors||[]).length})</div>`+(d.vendors||[]).map(v=>`<div class="ad-line">🤝 ${esc(v.name||'-')}${v.category?` · ${esc(v.category)}`:''}${v.price?` · ${rp(Number(v.price)||0)}`:''}</div>`).join(''):''}
+      ${(d.guests||[]).length?`<div class="admin-h" style="margin-top:16px">Tamu (${(d.guests||[]).length})</div>`+(d.guests||[]).slice(0,40).map(g=>`<div class="ad-line">💌 ${esc(g.name||'-')}${g.count>1?` · ${g.count} org`:''}${g.rsvp?` · ${esc(g.rsvp)}`:''}</div>`).join('')+((d.guests||[]).length>40?`<div class="ad-line" style="opacity:.55">…dan ${(d.guests||[]).length-40} tamu lainnya</div>`:''):''}
+    `;
+  }catch(e){ console.error(e); box.innerHTML='<div class="warn">Gagal memuat detail. Jalankan dulu kebijakan admin-read di Supabase.</div>'; }
+}
+async function loadAdminUsers(){
+  const box=$('#adminList'); if(!box) return;
+  try{
+    const {data,error}=await sb.from('profiles').select('id,email,status,is_admin,created_at').order('created_at',{ascending:false});
+    if(error) throw error;
+    if(!data || !data.length){ box.innerHTML='<p class="pdf-empty">Belum ada pengguna.</p>'; return; }
+    const pending=data.filter(u=>u.status==='pending');
+    const others=data.filter(u=>u.status!=='pending');
+    box.innerHTML =
+      (pending.length
+        ? `<div class="admin-h">Menunggu Persetujuan (${pending.length})</div>`+pending.map(adminRow).join('')
+        : `<div class="warn" style="background:#E6Faf5;color:#0f9d7a;border-color:#BFEFE2;margin-top:0">✅ Tidak ada yang menunggu persetujuan.</div>`)
+      + `<div class="admin-h" style="margin-top:18px">Semua Pengguna (${data.length})</div>`
+      + others.map(adminRow).join('');
+  }catch(e){ console.error(e); box.innerHTML='<div class="warn">Gagal memuat. Pastikan SQL panel admin sudah dijalankan di Supabase.</div>'; }
+}
+function adminRow(u){
+  const m={pending:['#FFF4E5','#c2691b','Menunggu'],approved:['#E6Faf5','#0f9d7a','Disetujui'],rejected:['#FFF1F3','#be123c','Ditolak']}[u.status]||['#F1F0F4','#666',u.status];
+  const me=u.id===currentUser.id;
+  return `<div class="admin-row">
+    <div class="admin-info"><b>${esc(displayUser(u.email)||u.id.slice(0,8))}${u.is_admin?' 👑':''}${me?' (kamu)':''}</b><span class="st-badge" style="background:${m[0]};color:${m[1]}">${m[2]}</span></div>
+    <div class="admin-acts">
+      <button class="btn btn-ghost" data-act="view-account" data-id="${u.id}" style="padding:7px 12px">Lihat</button>
+      ${u.status!=='approved'?`<button class="btn btn-pri" data-act="approve-user" data-id="${u.id}" style="padding:7px 12px">Setujui</button>`:''}
+      ${(u.status!=='rejected' && !me)?`<button class="btn btn-danger" data-act="reject-user" data-id="${u.id}" style="padding:7px 12px">Tolak</button>`:''}
+    </div>
+  </div>`;
+}
+async function approveUser(id){
+  try{ const {error}=await sb.from('profiles').update({status:'approved'}).eq('id',id); if(error) throw error; toast('Pengguna disetujui ✅'); }
+  catch(e){ console.error(e); toast('Gagal menyetujui'); }
+  loadAdminUsers();
+}
+async function rejectUser(id){
+  if(!confirm('Tolak / cabut akses pengguna ini?')) return;
+  try{ const {error}=await sb.from('profiles').update({status:'rejected'}).eq('id',id); if(error) throw error; toast('Pengguna ditolak'); }
+  catch(e){ console.error(e); toast('Gagal menolak'); }
+  loadAdminUsers();
 }
 </script>
 </body>

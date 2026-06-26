@@ -410,29 +410,40 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
 .photo-btns{display:flex;flex-direction:column;gap:8px}
 
 /* ---------- print / PDF ---------- */
-#printArea{display:none}
-@media print{
-  @page{margin:1.4cm}
-  body{background:#fff!important}
-  body > *:not(#printArea){display:none!important}
-  #printArea{display:block!important}
-  .print-doc{font-family:var(--font-b);color:#1a1a1a}
-  .print-head{text-align:center;border-bottom:2.5px solid #1a1a1a;padding-bottom:14px;margin-bottom:20px}
-  .print-head h1{font-family:var(--font-d);font-size:27px;font-weight:600}
-  .print-couple{font-size:18px;font-weight:700;margin-top:6px}
-  .print-date{font-size:13px;color:#444;margin-top:4px}
-  .print-doc h2{font-size:15px;margin:22px 0 8px;padding-bottom:5px;border-bottom:1.5px solid #888;page-break-after:avoid}
-  .print-doc table{width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:6px}
-  .print-doc th,.print-doc td{border:1px solid #bbb;padding:6px 8px;text-align:left;vertical-align:top}
-  .print-doc th{background:#f0f0f0;font-weight:700}
-  .print-doc td.num,.print-doc th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-  .print-doc tr{page-break-inside:avoid}
-  .print-summary{font-size:12px;font-weight:600;margin:6px 0 2px}
-  .print-tasks{font-size:11.5px;columns:2;column-gap:26px;margin-top:6px}
-  .print-tasks .pt-phase{break-inside:avoid;margin-bottom:9px}
-  .print-tasks .pt-phase b{display:block;margin-bottom:2px}
-  .print-foot{margin-top:26px;text-align:center;font-size:11px;color:#666;border-top:1px solid #ccc;padding-top:10px}
-}
+/* ---------- panggung PDF (off-screen, dirender ke gambar) ---------- */
+#pdfStage{position:fixed;left:-10000px;top:0;width:760px;background:#FFF9F4;font-family:var(--font-b);color:#43233A}
+#pdfStage .pdf-hero{background:linear-gradient(135deg,#FF4D8D,#FF7A59 55%,#FFC83D);color:#fff;padding:48px 44px;text-align:center}
+#pdfStage .pdf-ring{font-size:40px;line-height:1;margin-bottom:8px}
+#pdfStage .pdf-eyebrow{font-size:12px;font-weight:700;letter-spacing:4px;text-transform:uppercase;opacity:.92}
+#pdfStage .pdf-names{font-family:var(--font-d);font-weight:600;font-size:48px;line-height:1.04;margin:12px 0 8px}
+#pdfStage .pdf-names .amp{font-style:italic;font-weight:400;opacity:.92;padding:0 .1em}
+#pdfStage .pdf-date{font-size:17px;font-weight:600;opacity:.96}
+#pdfStage .pdf-count{display:inline-block;margin-top:18px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);border-radius:999px;padding:9px 22px;font-weight:700;font-size:15px}
+#pdfStage .pdf-body{padding:34px 44px 16px}
+#pdfStage .pdf-sec{margin-bottom:28px}
+#pdfStage .pdf-sec-h{font-family:var(--font-d);font-weight:600;font-size:21px;color:#43233A;margin-bottom:14px;display:flex;align-items:center;gap:12px}
+#pdfStage .pdf-sec-h .ic{font-size:18px}
+#pdfStage .pdf-sec-h::after{content:"";flex:1;height:2px;background:linear-gradient(90deg,#F0DCE4,rgba(240,220,228,0))}
+#pdfStage .pdf-stats{display:flex;gap:12px;margin-bottom:16px}
+#pdfStage .pdf-stat{flex:1;border:1.5px solid #F0DCE4;border-radius:14px;padding:14px 10px;text-align:center}
+#pdfStage .pdf-stat .l{font-size:10.5px;font-weight:700;color:#7A5C70;text-transform:uppercase;letter-spacing:.3px}
+#pdfStage .pdf-stat .v{font-family:var(--font-d);font-weight:600;font-size:19px;margin-top:4px;color:#43233A}
+#pdfStage .pdf-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid #F4E6EC;font-size:14px}
+#pdfStage .pdf-row:last-child{border-bottom:none}
+#pdfStage .pdf-row .nm{font-weight:600}
+#pdfStage .pdf-row .nm small{display:block;color:#7A5C70;font-weight:600;font-size:11.5px}
+#pdfStage .pdf-row .am{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+#pdfStage .pdf-row .am small{display:block;color:#7A5C70;font-weight:600;font-size:11px}
+#pdfStage .pdf-badge{font-size:11px;font-weight:700;padding:4px 11px;border-radius:999px;white-space:nowrap}
+#pdfStage .pdf-total{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:12px 16px;background:#FFF1F6;border-radius:12px;font-weight:800;font-size:15px}
+#pdfStage .pdf-empty{color:#7A5C70;font-size:13.5px;font-weight:600;padding:6px 2px}
+#pdfStage .pdf-prog{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+#pdfStage .pdf-prog .big{font-family:var(--font-d);font-weight:600;font-size:34px;color:#FF4D8D}
+#pdfStage .pdf-bar{flex:1;height:12px;border-radius:999px;background:#F4E6EC;overflow:hidden}
+#pdfStage .pdf-bar>span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#FF4D8D,#FFC83D)}
+#pdfStage .pdf-phase{font-size:13px;font-weight:600;padding:7px 2px;border-bottom:1px solid #F4E6EC;display:flex;justify-content:space-between}
+#pdfStage .pdf-foot{text-align:center;padding:22px;color:#7A5C70;font-size:12px;font-weight:600;border-top:1px solid #F0DCE4;margin-top:8px}
+#pdfStage .pdf-foot .fn{font-family:var(--font-d);font-weight:600;font-size:15px;color:#43233A}
 
 /* ---------- moodboard ---------- */
 .mood-grid{columns:3;column-gap:14px}
@@ -459,6 +470,8 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
 .join-row button{padding:0 18px;border-radius:11px;background:var(--grape);color:#fff;font-weight:800}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -484,7 +497,7 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
 
 <main class="view" id="view"></main>
 <footer class="appfoot" id="appFoot"></footer>
-<div id="printArea"></div>
+<div id="pdfStage"></div>
 
 <div class="overlay" id="overlay"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast"></div>
@@ -1124,7 +1137,7 @@ function settingsModal(){
         <button class="btn btn-pri btn-block" data-act="save-settings">Simpan Detail</button>
       </div>
       ${shareSectionHTML()}
-      <button class="btn btn-ghost btn-block" data-act="print-recap" style="margin-top:8px">🖨️ Cetak / Simpan PDF Rekap</button>
+      <button class="btn btn-ghost btn-block" data-act="print-recap" style="margin-top:8px">📄 Unduh PDF Rekap</button>
       <div class="settings-divider"></div>
       <div class="danger-zone">Cadangan & Reset</div>
       <div class="modal-foot" style="margin-top:0">
@@ -1275,65 +1288,101 @@ function attachMoodNotes(){
   });
 }
 
-/* ---------- cetak / simpan PDF rekap ---------- */
-function buildPrintRecap(){
+/* ---------- unduh PDF rekap (tanpa watermark, via html2canvas + jsPDF) ---------- */
+function pdfBadge(bg,color,text){ return `<span class="pdf-badge" style="background:${bg};color:${color}">${text}</span>`; }
+function buildPdfStage(){
   const s=state.settings, b=budgetTotals(), g=guestTotals(), ve=vendorTotals(), cl=checklistTotals();
-  const name=APP_NAME;
   const diff=new Date(s.date+'T00:00:00')-Date.now();
-  const daysTxt = diff>0 ? (Math.ceil(diff/86400000)+' hari lagi') : 'Hari bahagia telah tiba';
+  const daysTxt = diff>0 ? (Math.ceil(diff/86400000)+' hari menuju hari bahagia') : 'Hari bahagia telah tiba 🎉';
 
-  const budRows=state.budget.map(c=>`<tr><td>${esc(c.name)}</td><td class="num">${rp(c.estimate)}</td><td class="num">${rp(c.actual)}</td><td class="num">${rp(c.paid)}</td></tr>`).join('');
-  const venRows=state.vendors.length
-    ? state.vendors.map(v=>`<tr><td>${esc(v.name)}</td><td>${esc(v.category||'-')}</td><td>${V_STATUS[v.status]}</td><td class="num">${rp(v.price)}</td><td class="num">${rp(v.paid)}</td></tr>`).join('')
-    : `<tr><td colspan="5">Belum ada vendor</td></tr>`;
-  const guestRows=state.guests.length
-    ? state.guests.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.group||'-')}</td><td class="num">${grp(x.count)}</td><td>${RSVP[x.rsvp]}</td></tr>`).join('')
-    : `<tr><td colspan="4">Belum ada tamu</td></tr>`;
-  const phases=PHASE_ORDER.map(ph=>{
+  const budRows = state.budget.filter(c=>c.estimate>0||c.actual>0||c.paid>0).map(c=>
+    `<div class="pdf-row"><div class="nm">${esc(c.name)}</div><div class="am">${rp(c.actual||c.estimate)}<small>dibayar ${rp(c.paid)}</small></div></div>`
+  ).join('') || `<div class="pdf-empty">Belum ada pos pengeluaran terisi.</div>`;
+
+  const vBadge={dihubungi:['#FFF4E5','#c2691b'],booking:['#EEF0FF','#5b4bd6'],lunas:['#E6Faf5','#0f9d7a'],selesai:['#F3E8FF','#7c3aed']};
+  const venRows = state.vendors.length ? state.vendors.map(v=>{
+    const [bg,col]=vBadge[v.status]||['#F1F0F4','#666'];
+    return `<div class="pdf-row"><div class="nm">${esc(v.name)}<small>${esc(v.category||'-')}</small></div><div style="display:flex;align-items:center;gap:10px">${pdfBadge(bg,col,V_STATUS[v.status])}<span class="am">${rp(v.price)}</span></div></div>`;
+  }).join('') : `<div class="pdf-empty">Belum ada vendor.</div>`;
+
+  const rBadge={diundang:['#F1F0F4','#6b6580'],hadir:['#E6Faf5','#0f9d7a'],tidak:['#FFF1F3','#be123c'],pending:['#FFF4E5','#c2691b']};
+  const guestRows = state.guests.length ? state.guests.map(x=>{
+    const [bg,col]=rBadge[x.rsvp]||['#F1F0F4','#666'];
+    return `<div class="pdf-row"><div class="nm">${esc(x.name)}<small>${esc(x.group||'-')}</small></div><div style="display:flex;align-items:center;gap:10px">${pdfBadge(bg,col,RSVP[x.rsvp])}<span class="am">${grp(x.count)} org</span></div></div>`;
+  }).join('') : `<div class="pdf-empty">Belum ada daftar tamu.</div>`;
+
+  const phases = PHASE_ORDER.map(ph=>{
     const tasks=state.checklist.filter(t=>t.phase===ph);
     const done=tasks.filter(t=>t.done).length;
-    const items=tasks.map(t=>`<div>${t.done?'☑':'☐'} ${esc(t.text)}</div>`).join('');
-    return `<div class="pt-phase"><b>${ph} (${done}/${tasks.length})</b>${items}</div>`;
+    return `<div class="pdf-phase"><span>${ph}</span><span>${done}/${tasks.length}</span></div>`;
   }).join('');
 
-  $('#printArea').innerHTML=`
-    <div class="print-doc">
-      <div class="print-head">
-        <h1>${esc(name)}</h1>
-        <div class="print-couple">${esc(s.partner1)} &amp; ${esc(s.partner2)}</div>
-        <div class="print-date">${formatDateID(s.date)} · ${daysTxt}</div>
+  $('#pdfStage').innerHTML = `
+    <div class="pdf-hero">
+      <div class="pdf-ring">💍</div>
+      <div class="pdf-eyebrow">Menuju Hari Bahagia</div>
+      <div class="pdf-names">${esc(s.partner1||'Mempelai')}<span class="amp">&amp;</span>${esc(s.partner2||'Pasangan')}</div>
+      <div class="pdf-date">${formatDateID(s.date)}</div>
+      <div class="pdf-count">${daysTxt}</div>
+    </div>
+    <div class="pdf-body">
+      <div class="pdf-sec">
+        <div class="pdf-sec-h"><span class="ic">💰</span>Ringkasan Anggaran</div>
+        <div class="pdf-stats">
+          <div class="pdf-stat"><div class="l">Total Anggaran</div><div class="v">${rp(b.budget)}</div></div>
+          <div class="pdf-stat"><div class="l">Estimasi</div><div class="v">${rp(b.est)}</div></div>
+          <div class="pdf-stat"><div class="l">Dibayar</div><div class="v">${rp(b.paid)}</div></div>
+          <div class="pdf-stat"><div class="l">Sisa</div><div class="v">${rp(b.sisa)}</div></div>
+        </div>
+        ${budRows}
+        <div class="pdf-total"><span>Total Estimasi Biaya</span><span>${rp(b.est)}</span></div>
       </div>
-
-      <h2>Ringkasan Anggaran</h2>
-      <table>
-        <thead><tr><th>Pos Pengeluaran</th><th class="num">Estimasi</th><th class="num">Aktual</th><th class="num">Dibayar</th></tr></thead>
-        <tbody>${budRows}
-          <tr><td><b>TOTAL</b></td><td class="num"><b>${rp(b.est)}</b></td><td class="num"><b>${rp(b.act)}</b></td><td class="num"><b>${rp(b.paid)}</b></td></tr>
-        </tbody>
-      </table>
-      <div class="print-summary">Total anggaran: ${rp(b.budget)}  ·  Sisa anggaran: ${rp(b.sisa)}</div>
-
-      <h2>Vendor (${ve.count})</h2>
-      <table>
-        <thead><tr><th>Nama</th><th>Kategori</th><th>Status</th><th class="num">Harga</th><th class="num">Dibayar</th></tr></thead>
-        <tbody>${venRows}</tbody>
-      </table>
-      <div class="print-summary">Nilai kontrak: ${rp(ve.nilai)}  ·  Dibayar: ${rp(ve.paid)}  ·  Sisa tagihan: ${rp(ve.sisa)}</div>
-
-      <h2>Daftar Tamu</h2>
-      <div class="print-summary">Total undangan: ${g.undangan}  ·  Total tamu: ${grp(g.total)} orang  ·  Konfirmasi hadir: ${grp(g.hadir)} orang</div>
-      <table>
-        <thead><tr><th>Nama / Kelompok</th><th>Kategori</th><th class="num">Jumlah</th><th>Status</th></tr></thead>
-        <tbody>${guestRows}</tbody>
-      </table>
-
-      <h2>Progres Persiapan (${cl.pct}% — ${cl.done}/${cl.total} tugas)</h2>
-      <div class="print-tasks">${phases}</div>
-
-      <div class="print-foot">Dicetak ${new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})} · ${esc(name)}</div>
-    </div>`;
+      <div class="pdf-sec">
+        <div class="pdf-sec-h"><span class="ic">🤝</span>Vendor (${ve.count})</div>
+        ${venRows}
+        ${ve.count?`<div class="pdf-total"><span>Sisa Tagihan</span><span>${rp(ve.sisa)}</span></div>`:''}
+      </div>
+      <div class="pdf-sec">
+        <div class="pdf-sec-h"><span class="ic">💌</span>Daftar Tamu</div>
+        <div class="pdf-stats">
+          <div class="pdf-stat"><div class="l">Undangan</div><div class="v">${g.undangan}</div></div>
+          <div class="pdf-stat"><div class="l">Total Tamu</div><div class="v">${grp(g.total)}</div></div>
+          <div class="pdf-stat"><div class="l">Hadir</div><div class="v">${grp(g.hadir)}</div></div>
+        </div>
+        ${guestRows}
+      </div>
+      <div class="pdf-sec">
+        <div class="pdf-sec-h"><span class="ic">✅</span>Progres Persiapan</div>
+        <div class="pdf-prog"><div class="big">${cl.pct}%</div><div class="pdf-bar"><span style="width:${cl.pct}%"></span></div></div>
+        ${phases}
+      </div>
+    </div>
+    <div class="pdf-foot"><div class="fn">💍 ${esc(APP_NAME)}</div>Dibuat dengan 💕 · ${new Date().getFullYear()}</div>
+  `;
 }
-function printRecap(){ buildPrintRecap(); closeModal(); setTimeout(()=>window.print(),250); }
+async function generatePdf(){
+  if(!window.html2canvas || !window.jspdf){ toast('Komponen PDF belum termuat, coba lagi sebentar'); return; }
+  closeModal(); toast('Menyiapkan PDF…');
+  buildPdfStage();
+  await new Promise(r=>setTimeout(r,350));   // beri waktu font & layout siap
+  try{
+    const stage=$('#pdfStage');
+    const canvas=await html2canvas(stage,{scale:2,backgroundColor:'#FFF9F4',useCORS:true,logging:false});
+    const img=canvas.toDataURL('image/jpeg',0.92);
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF('p','mm','a4');
+    const pw=210, ph=297;
+    const iw=pw, ih=canvas.height*pw/canvas.width;
+    let left=ih, pos=0;
+    pdf.addImage(img,'JPEG',0,0,iw,ih,'recap','FAST');
+    left-=ph;
+    while(left>0){ pos=left-ih; pdf.addPage(); pdf.addImage(img,'JPEG',0,pos,iw,ih,'recap','FAST'); left-=ph; }
+    const fn=`pernikahan-${(state.settings.partner1||'mempelai')}-${(state.settings.partner2||'pasangan')}.pdf`.toLowerCase().replace(/[^a-z0-9-]+/g,'-');
+    pdf.save(fn);
+    toast('PDF tersimpan 📄');
+  }catch(e){ console.error(e); toast('Gagal membuat PDF'); }
+  finally{ $('#pdfStage').innerHTML=''; }
+}
 
 function vendorModal(id){
   const x = id? state.vendors.find(v=>v.id===id) : {name:'',category:'',contact:'',phone:'',price:0,paid:0,status:'dihubungi',notes:''};
@@ -1462,7 +1511,7 @@ document.addEventListener('click',e=>{
     case 'join-wedding': joinWedding(); break;
     case 'leave-wedding': leaveWedding(); break;
     case 'revoke-member': revokeMember(id); break;
-    case 'print-recap': printRecap(); break;
+    case 'print-recap': generatePdf(); break;
     case 'add-mood': $('#moodInput').click(); break;
     case 'del-mood': delMood(id); break;
     case 'reset-data': resetData(); break;

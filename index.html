@@ -613,12 +613,12 @@ async function cloudCreate(){
   if(error){ setSync('error'); console.error('Gagal membuat:',error); } else { lastWriteISO=iso; setSync('saved'); }
 }
 async function cloudLoad(){
-  const {data:row,error}=await sb.from('weddings').select('data,updated_at,share_code').eq('user_id',activeWeddingId).maybeSingle();
+  const {data:row,error}=await sb.from('weddings').select('data,updated_at').eq('user_id',activeWeddingId).maybeSingle();
   if(error) console.error('Gagal memuat:',error);
   if(row && row.data && Object.keys(row.data).length){
     state=Object.assign(defaultData(),row.data);
     lastWriteISO=row.updated_at;
-    myShareCode = isWeddingOwner ? (row.share_code||null) : null;
+    myShareCode = null;            // diambil lazy via get_share_code saat dibutuhkan
   }else if(isWeddingOwner){
     state=defaultData();
     await cloudCreate();           // buat baris awal untuk pemilik
@@ -1760,18 +1760,9 @@ function enterApp(){
 (async function boot(){
   if(CLOUD_ENABLED && typeof supabase!=='undefined'){
     sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
-    sb.auth.onAuthStateChange(async (event,session)=>{
-      if(session && session.user){
-        const fresh = !currentUser || currentUser.id!==session.user.id;
-        currentUser=session.user;
-        if(fresh){ try{ await resolveActiveWedding(); await cloudLoad(); subscribeRealtime(); }catch(e){ console.error(e); } }
-        enterApp();
-      }else{
-        currentUser=null;
-        if(rtChannel){ sb.removeChannel(rtChannel); rtChannel=null; }
-        hideBoot(); showAuth();
-      }
-    });
+    // PENTING: jangan await pemanggilan Supabase langsung di dalam callback ini
+    // (auth memegang lock → bisa deadlock). Tunda dengan setTimeout(0).
+    sb.auth.onAuthStateChange((event,session)=>{ setTimeout(()=>handleAuth(session),0); });
     // jaring pengaman jika callback tidak terpanggil
     setTimeout(async ()=>{
       const b=$('#boot');
@@ -1779,7 +1770,7 @@ function enterApp(){
         try{ const {data:{session}}=await sb.auth.getSession(); if(!session){ hideBoot(); showAuth(); } }
         catch(e){ hideBoot(); showAuth(); }
       }
-    },4000);
+    },5000);
   }else{
     // Mode lokal (Supabase belum dikonfigurasi)
     const saved=await localGet();
@@ -1787,6 +1778,18 @@ function enterApp(){
     enterApp();
   }
 })();
+async function handleAuth(session){
+  if(session && session.user){
+    const fresh = !currentUser || currentUser.id!==session.user.id;
+    currentUser=session.user;
+    if(fresh){ try{ await resolveActiveWedding(); await cloudLoad(); subscribeRealtime(); }catch(e){ console.error(e); } }
+    enterApp();
+  }else{
+    currentUser=null;
+    if(rtChannel){ sb.removeChannel(rtChannel); rtChannel=null; }
+    hideBoot(); showAuth();
+  }
+}
 </script>
 </body>
 </html>

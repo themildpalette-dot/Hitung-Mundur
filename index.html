@@ -510,6 +510,25 @@ body.pubinv.inv-opened{overflow:auto}
 .inv-wing svg{height:100%;width:auto;display:block}
 .inv-wing-l{left:7%;transform:rotate(-19deg)}
 .inv-wing-r{right:7%;transform:rotate(19deg) scaleX(-1)}
+/* ===== Opsi B: nuansa adat di seluruh isi undangan ===== */
+body.inv-adat{background:var(--glow1)}
+body.inv-adat .inv{background:linear-gradient(180deg,var(--cream),var(--glow1) 160%);box-shadow:0 0 60px rgba(0,0,0,.14),inset 2px 0 0 var(--gold),inset -2px 0 0 var(--gold)}
+body.inv-adat .inv-sec{border-bottom:1px solid var(--line)}
+body.inv-adat .inv-sec .ic{display:none}
+body.inv-adat .inv-sec h3{color:var(--ink)}
+body.inv-adat .inv-quote,body.inv-adat .inv-greet{color:var(--ink)}
+body.inv-adat .inv-greet{color:var(--ink-soft)}
+body.inv-adat .inv-evt,body.inv-adat .inv-gift{border:1.5px solid var(--gold);background:var(--glow1)}
+body.inv-adat .inv-evt h4{color:var(--ink)}
+body.inv-adat .inv-evt .row{color:var(--ink)}
+body.inv-adat .inv-gift .rek{color:var(--ink)}
+body.inv-adat .inv-map{background:var(--ink);color:var(--cream)}
+body.inv-adat .inv-field input,body.inv-adat .inv-field textarea{background:#fff;border-color:var(--line)}
+body.inv-adat .inv-field input:focus,body.inv-adat .inv-field textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(0,0,0,.06)}
+body.inv-adat .inv-btn{background:linear-gradient(135deg,var(--gold),var(--rose));box-shadow:0 12px 26px -10px rgba(0,0,0,.5)}
+body.inv-adat .inv-rsvp-opts button.on{border-color:var(--gold);background:var(--glow2)}
+body.inv-adat .inv-copy{background:var(--ink);color:var(--cream)}
+body.inv-adat .inv-orn-wrap{color:var(--gold)}
 /* kartu acara: kedalaman + ikon */
 .inv-evt{box-shadow:0 22px 44px -24px rgba(67,35,58,.55),inset 0 1px 0 rgba(255,255,255,.6)}
 .inv-evt-ic{font-size:30px;line-height:1;margin-bottom:6px}
@@ -2692,6 +2711,8 @@ function renderPublicInvite(d){
   const guestName=(new URLSearchParams(location.search).get('to')||'').trim().slice(0,60);
   const theme=(iv.theme&&INV_MOTIFS[iv.theme])?iv.theme:'minimalis';
   const orn=invDivider(theme,false);
+  const sd = isAdat(theme) ? orn : '';
+  const qz = (s)=> esc(String(s||'').trim().replace(/^[\u201C\u201D\u2018\u2019"'`]+/,'').replace(/[\u201C\u201D\u2018\u2019"'`]+$/,''));
   const evt=(emo,title,o)=> (o&&(o.date||o.place)) ? `
     <div class="inv-evt">
       <div class="inv-evt-ic">${emo}</div>
@@ -2765,11 +2786,11 @@ function renderPublicInvite(d){
   $('#invite').innerHTML=`
     <div class="inv">
       ${coverHTML}
-      ${iv.quote?`<div class="inv-sec reveal">${orn}<p class="inv-quote">"${esc(iv.quote)}"</p></div>`:''}
-      ${iv.greeting?`<div class="inv-sec reveal"><span class="ic">🤍</span><h3>Bismillah</h3><p class="inv-greet">${esc(iv.greeting)}</p></div>`:''}
+      ${iv.quote?`<div class="inv-sec reveal">${orn}<p class="inv-quote">“${qz(iv.quote)}”</p></div>`:''}
+      ${iv.greeting?`<div class="inv-sec reveal">${sd}<span class="ic">🤍</span><h3>Bismillah</h3><p class="inv-greet">${esc(iv.greeting)}</p></div>`:''}
       ${acara?`<div class="inv-sec reveal">${orn}<span class="ic">📅</span><h3>Rangkaian Acara</h3>${acara}</div>`:''}
       <div class="inv-sec reveal">
-        <span class="ic">✍️</span><h3>Konfirmasi Kehadiran</h3>
+        ${sd}<span class="ic">✍️</span><h3>Konfirmasi Kehadiran</h3>
         <div class="inv-field">
           <label>Nama</label><input id="rsvpName" value="${esc(guestName)}" placeholder="Nama kamu" autocomplete="name">
           <label>Apakah akan hadir?</label>
@@ -2782,7 +2803,7 @@ function renderPublicInvite(d){
         </div>
       </div>
       <div class="inv-sec reveal">
-        <span class="ic">💌</span><h3>Ucapan &amp; Doa</h3>
+        ${sd}<span class="ic">💌</span><h3>Ucapan &amp; Doa</h3>
         <div class="inv-field">
           <label>Nama</label><input id="wishName" value="${esc(guestName)}" placeholder="Nama kamu" autocomplete="name">
           <label>Ucapan</label><textarea id="wishMsg" placeholder="Tulis ucapan & doa untuk mempelai…"></textarea>
@@ -2797,6 +2818,7 @@ function renderPublicInvite(d){
     ${openHTML}
     ${music}`;
   startInviteCountdown(mainDate);
+  document.body.classList.toggle('inv-adat', isAdat(theme));
   setupInviteReveal();
   setupInviteParallax();
   if(!reducedMotion) spawnInvPetals($('#invOpenPetals'));

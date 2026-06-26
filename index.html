@@ -319,6 +319,11 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
 }
 .mfield textarea{resize:vertical;min-height:70px;font-weight:500}
 .mfield input:focus,.mfield select:focus,.mfield textarea:focus{border-color:var(--rose);box-shadow:0 0 0 3px rgba(255,77,141,.12)}
+.pass-wrap{position:relative}
+.pass-wrap input{padding-right:46px!important}
+.pass-eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:0;cursor:pointer;font-size:17px;line-height:1;padding:6px;opacity:.55;transition:opacity .15s;border-radius:8px}
+.pass-eye:hover{opacity:.9}
+.pass-eye.on{opacity:1}
 .mrow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .mfield .money-in{background:#fff;border-radius:13px;padding:13px 15px}
 .modal-foot{display:flex;gap:10px;margin-top:8px}
@@ -1607,6 +1612,7 @@ document.addEventListener('click',e=>{
     case 'auth-mode': switchAuthMode(t.dataset.mode); break;
     case 'auth-submit': authSubmit(); break;
     case 'send-reset': sendResetEmail(); break;
+    case 'toggle-pass': { const pf=document.getElementById(t.dataset.target); if(pf){ const show=pf.type==='password'; pf.type=show?'text':'password'; t.classList.toggle('on',show); t.textContent=show?'🙈':'👁️'; pf.focus(); } break; }
     case 'submit-new-password': submitNewPassword(); break;
     case 'recheck-status': recheckStatus(); break;
     case 'admin-panel': adminPanel(); break;
@@ -1614,6 +1620,8 @@ document.addEventListener('click',e=>{
     case 'reject-user': rejectUser(id); break;
     case 'export-all': exportAllAccounts(); break;
     case 'view-account': viewAccount(id); break;
+    case 'reset-pass-user': resetUserPass(id); break;
+    case 'submit-reset-pass': submitResetPass(id); break;
     case 'refresh-admin': loadAdminUsers(); break;
     case 'save-announce': saveAnnounce(); break;
     case 'dismiss-announce': announceDismissed=true; { const b=$('#announceBar'); if(b) b.innerHTML=''; } break;
@@ -1709,12 +1717,13 @@ function renderAuth(){
     <div class="auth-card">
       <div class="auth-hero">
         <div class="ring">🔑</div>
-        <h1>Lupa Password</h1>
-        <p>Kami kirim link reset ke email kamu</p>
+        <h1>Lupa Kata Sandi</h1>
+        <p>Kami kirim link reset ke emailmu</p>
       </div>
       <div class="auth-body">
         <div class="auth-err" id="au-err"></div>
-        <div class="mfield"><label>Email</label><input type="email" id="au-email" placeholder="nama@email.com" autocomplete="email"></div>
+        <div class="mfield"><label>Email akun</label><input type="email" id="au-email" placeholder="nama@email.com" autocomplete="email"></div>
+        <div class="warn" style="background:#F3E8FF;color:#6b21a8;border-color:#E9D5FF;margin:0 0 14px;font-size:12px;line-height:1.5">ℹ️ Reset lewat email hanya untuk akun yang didaftarkan pakai <b>email</b>. Kalau kamu daftar pakai <b>nama pengguna</b>, hubungi admin untuk reset.</div>
         <button class="btn btn-pri btn-block" id="au-submit" data-act="send-reset">Kirim Link Reset</button>
         <p class="auth-note"><a data-act="auth-mode" data-mode="signin" style="color:var(--rose);font-weight:700;cursor:pointer">← Kembali ke Masuk</a></p>
       </div>
@@ -1737,8 +1746,9 @@ function renderAuth(){
         </div>
         <div class="auth-err" id="au-err"></div>
         <div class="mfield"><label>Nama Pengguna</label><input type="text" id="au-email" placeholder="mis. sanick88" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
-        <div class="mfield"><label>Kata Sandi</label><input type="password" id="au-pass" placeholder="minimal 6 karakter" autocomplete="${authMode==='signup'?'new-password':'current-password'}"></div>
+        <div class="mfield"><label>Kata Sandi</label><div class="pass-wrap"><input type="password" id="au-pass" placeholder="minimal 6 karakter" autocomplete="${authMode==='signup'?'new-password':'current-password'}"><button type="button" class="pass-eye" data-act="toggle-pass" data-target="au-pass" aria-label="Lihat sandi" title="Lihat / sembunyikan sandi">👁️</button></div></div>
         <button class="btn btn-pri btn-block" id="au-submit" data-act="auth-submit">${authMode==='signup'?'Daftar':'Masuk'}</button>
+        ${authMode==='signin'?`<p style="text-align:center;margin-top:12px"><a data-act="auth-mode" data-mode="forgot" style="color:var(--ink-soft);font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:underline">Lupa kata sandi?</a></p>`:''}
         <p class="auth-note">${authMode==='signup'?'Sudah punya akun? Klik “Masuk”.':'Belum punya akun? Klik “Daftar”.'}<br>Atur anggaran, vendor, &amp; tamu — privat dan tersimpan otomatis.</p>
       </div>
     </div>`;
@@ -1753,6 +1763,7 @@ function authError(msg){ const e=$('#au-err'); if(e){ e.textContent=msg; e.class
 async function sendResetEmail(){
   const email=($('#au-email').value||'').trim();
   if(!email){ authError('Masukkan email kamu dulu.'); return; }
+  if(!email.includes('@')){ authError('Itu sepertinya nama pengguna. Reset lewat email hanya untuk akun email — hubungi admin untuk reset sandi.'); return; }
   const btn=$('#au-submit'); btn.disabled=true; btn.textContent='Mengirim…';
   try{
     const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
@@ -1944,7 +1955,11 @@ async function joinWedding(){
     toast('Berhasil bergabung dengan pernikahan pasangan 💑');
   }catch(e){
     const msg=(e&&e.message)||'';
-    toast(msg.includes('tidak ditemukan')?'Kode tidak ditemukan':(msg.includes('sendiri')?'Itu kode pernikahanmu sendiri':'Gagal bergabung — cek kodenya'));
+    let t='Gagal bergabung — cek kodenya';
+    if(msg.includes('tidak ditemukan')) t='Kode tidak ditemukan';
+    else if(msg.includes('sendiri')) t='Itu kode pernikahanmu sendiri';
+    else if(msg.includes('sudah dipakai')) t='Kode sudah dipakai — pernikahan ini hanya untuk 2 akun (kamu & pasangan)';
+    toast(t);
   }
 }
 async function leaveWedding(){
@@ -2362,8 +2377,41 @@ function adminRow(u){
       <button class="btn btn-ghost" data-act="view-account" data-id="${u.id}" style="padding:7px 12px">Lihat</button>
       ${u.status!=='approved'?`<button class="btn btn-pri" data-act="approve-user" data-id="${u.id}" style="padding:7px 12px">Setujui</button>`:''}
       ${(u.status!=='rejected' && !me)?`<button class="btn btn-danger" data-act="reject-user" data-id="${u.id}" style="padding:7px 12px">Tolak</button>`:''}
+      ${!me?`<button class="btn btn-ghost" data-act="reset-pass-user" data-id="${u.id}" style="padding:7px 12px;color:var(--grape)">🔑 Reset Sandi</button>`:''}
     </div>
   </div>`;
+}
+function resetUserPass(id){
+  const u=(adminUsers||[]).find(x=>x.id===id);
+  const who=u?(displayUser(u.email)||id.slice(0,8)):'pengguna ini';
+  openModal(`<div class="modal-head"><h3>Reset Sandi</h3><button class="modal-x" data-act="close">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5">Buat kata sandi sementara untuk <b>${esc(who)}</b>. Beri tahu sandi ini ke pemiliknya, lalu minta dia menggantinya sendiri setelah masuk lewat menu ⚙️.</p>
+      <div id="rs-err" style="display:none;background:#FFF1F3;color:#be123c;border:1px solid #FBD5DC;border-radius:10px;padding:9px 12px;font-size:12.5px;margin-bottom:12px"></div>
+      <div class="mfield"><label>Kata Sandi Sementara</label><div class="pass-wrap"><input type="text" id="rs-pass" placeholder="minimal 6 karakter" autocomplete="off" spellcheck="false"><button type="button" class="pass-eye on" data-act="toggle-pass" data-target="rs-pass" title="Lihat / sembunyikan">🙈</button></div></div>
+      <button class="btn btn-pri btn-block" data-act="submit-reset-pass" data-id="${id}" style="margin-top:6px">Reset Sandi Sekarang</button>
+    </div>`);
+  setTimeout(()=>{const e=$('#rs-pass'); if(e) e.focus();},60);
+}
+function rsError(m){ const e=$('#rs-err'); if(e){ e.textContent=m; e.style.display='block'; } }
+async function submitResetPass(id){
+  const p=$('#rs-pass')?.value||'';
+  if(p.length<6){ rsError('Kata sandi minimal 6 karakter.'); return; }
+  const btn=$('[data-act="submit-reset-pass"]'); if(btn){ btn.disabled=true; btn.innerHTML='<span class="spin"></span>'; }
+  try{
+    const {error}=await sb.rpc('admin_reset_password',{target_user:id,new_password:p});
+    if(error) throw error;
+    closeModal();
+    const u=(adminUsers||[]).find(x=>x.id===id);
+    toast('Sandi '+(u?displayUser(u.email):'pengguna')+' berhasil direset 🔐');
+  }catch(e){
+    const msg=(e&&e.message)||'';
+    let t='Gagal reset: '+msg;
+    if(msg.includes('Tidak diizinkan')) t='Hanya admin yang bisa reset.';
+    else if(/function|does not exist|schema|admin_reset_password|could not find/i.test(msg)) t='Fungsi SQL belum dijalankan. Jalankan dulu SQL admin_reset_password di Supabase.';
+    rsError(t);
+    if(btn){ btn.disabled=false; btn.textContent='Reset Sandi Sekarang'; }
+  }
 }
 async function approveUser(id){
   try{ const {error}=await sb.from('profiles').update({status:'approved'}).eq('id',id); if(error) throw error; toast('Pengguna disetujui ✅'); }

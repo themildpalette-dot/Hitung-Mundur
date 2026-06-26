@@ -477,6 +477,39 @@ body.pubinv.inv-opened{overflow:auto}
 .inv-open-orn{margin:10px auto 4px;width:fit-content;animation:invfloat 3s ease-in-out infinite;filter:drop-shadow(0 6px 16px rgba(0,0,0,.34))}
 .inv-open-orn .inv-hero-orn{width:62px;height:34px;color:#fff;opacity:.96}
 @media(prefers-reduced-motion:reduce){.inv-open-orn{animation:none}}
+/* ===== Adat: bingkai sampul penuh (krem + teks gelap + border batik) ===== */
+.inv-cover.adat,.inv-open.adat{background:linear-gradient(180deg,var(--cream),var(--glow1));color:var(--ink);padding-top:78px;padding-bottom:96px}
+.inv-open.adat{padding-top:66px}
+.inv-cover.adat .inv-cover-in,.inv-open.adat .inv-open-card{position:relative;z-index:4;color:var(--ink)}
+.inv-cover.adat .inv-eyebrow,.inv-open.adat .inv-eyebrow{color:var(--ink-soft)}
+.inv-cover.adat .inv-names,.inv-open.adat .inv-names{color:var(--ink);text-shadow:none}
+.inv-cover.adat .inv-amp,.inv-open.adat .inv-amp{color:var(--gold)}
+.inv-cover.adat .inv-date,.inv-open.adat .inv-open-to{color:var(--ink-soft)}
+.inv-cover.adat .inv-cd>div{background:var(--ink);border:none}
+.inv-cover.adat .inv-cd b,.inv-cover.adat .inv-cd span{color:var(--cream);opacity:1}
+.inv-cover.adat .inv-scroll{color:var(--ink-soft)}
+.inv-open.adat .inv-open-btn{background:var(--ink);color:var(--cream);box-shadow:0 12px 28px -8px rgba(0,0,0,.45)}
+.inv-band-top,.inv-band-bot{position:absolute;left:0;right:0;z-index:3;pointer-events:none;line-height:0}
+.inv-band-top{top:0}
+.inv-band-bot{bottom:0}
+.inv-band-top .inv-band{width:100%;height:76px;display:block}
+.inv-band-bot .inv-band{width:100%;height:94px;display:block}
+.inv-sil{position:absolute;bottom:42px;z-index:3;height:110px;pointer-events:none}
+.inv-sil svg{height:100%;width:auto;display:block}
+.inv-sil-l{left:4px}
+.inv-sil-r{right:4px;transform:scaleX(-1)}
+.inv-cloud{position:absolute;z-index:2;width:90px;top:15%;pointer-events:none;opacity:.92}
+.inv-cloud svg{width:100%;height:auto;display:block}
+.inv-cloud-l{left:-8px}
+.inv-cloud-r{right:-8px;transform:scaleX(-1)}
+.inv-photo-wrap{position:relative;width:198px;max-width:60%;margin:0 auto 20px}
+.inv-open.adat .inv-photo-wrap{width:150px}
+.inv-photo{aspect-ratio:3/4;border-radius:99px 99px 16px 16px;background-size:cover;background-position:center;border:3px solid var(--gold);box-shadow:0 18px 38px -14px rgba(0,0,0,.5);position:relative;z-index:2}
+.inv-photo.nophoto{display:flex;align-items:center;justify-content:center;font-size:54px;background:var(--glow1)}
+.inv-wing{position:absolute;bottom:4%;height:120%;z-index:1;opacity:.93;transform-origin:50% 90%}
+.inv-wing svg{height:100%;width:auto;display:block}
+.inv-wing-l{left:7%;transform:rotate(-19deg)}
+.inv-wing-r{right:7%;transform:rotate(19deg) scaleX(-1)}
 /* kartu acara: kedalaman + ikon */
 .inv-evt{box-shadow:0 22px 44px -24px rgba(67,35,58,.55),inset 0 1px 0 rgba(255,255,255,.6)}
 .inv-evt-ic{font-size:30px;line-height:1;margin-bottom:6px}
@@ -2482,6 +2515,38 @@ const INV_MOTIFS = {
 };
 function invDivider(theme,light){ const m=INV_MOTIFS[theme]||INV_MOTIFS.minimalis; return `<div class="inv-orn-wrap${light?' light':''}"><svg class="inv-orn" viewBox="0 0 120 24" aria-hidden="true"><path d="M10 12 H47 M73 12 H110" stroke="currentColor" stroke-width="1" fill="none" opacity=".5"/>${m}</svg></div>`; }
 function invHeroOrn(theme){ const m=INV_MOTIFS[theme]||INV_MOTIFS.minimalis; return `<svg class="inv-hero-orn" viewBox="44 2 32 21" aria-hidden="true">${m}</svg>`; }
+/* ===== Bingkai adat penuh (border batik + siluet khas) ===== */
+function isAdat(t){ return ['jawa','minang','sunda','bali','islami'].includes(t); }
+function bandSVG(theme,pos){
+  const t=INV_THEMES[theme]||INV_THEMES.minimalis, c=t.ink, W=480, n=11, bw=W/n, baseY=24, amp=13;
+  let d=`M0 0 H${W} V${baseY} `;
+  for(let i=0;i<n;i++){ const x1=(W-(i+1)*bw).toFixed(1), xm=(W-i*bw-bw/2).toFixed(1); d+=`Q ${xm} ${baseY+amp} ${x1} ${baseY} `; }
+  d+='Z';
+  let fr='';
+  for(let i=0;i<n;i++){ const xm=(W-i*bw-bw/2).toFixed(1); for(let b=0;b<3;b++){ fr+=`<circle cx="${xm}" cy="${(baseY+amp+3+b*5.5).toFixed(1)}" r="${(2-b*0.4).toFixed(1)}"/>`; } }
+  const H=(baseY+amp+20).toFixed(1), g=`<g fill="${c}"><path d="${d}"/>${fr}</g>`;
+  const inner = pos==='bottom' ? `<g transform="translate(0,${H}) scale(1,-1)">${g}</g>` : g;
+  return `<svg class="inv-band" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${inner}</svg>`;
+}
+function _gunungan(c,g){ return `<svg viewBox="0 0 90 154" aria-hidden="true"><path d="M45 6 C64 32 66 62 58 96 C54 116 50 128 45 148 C40 128 36 116 32 96 C24 62 26 32 45 6Z" fill="${c}"/><path d="M45 26 V122 M37 116 Q45 106 53 116 M33 76 Q45 70 57 76 M31 98 Q45 92 59 98 M35 50 Q45 46 55 50" stroke="${g}" stroke-width="1.6" fill="none" opacity=".6" stroke-linecap="round"/><circle cx="45" cy="40" r="3" fill="${g}" opacity=".5"/></svg>`; }
+function _rumahgadang(c,g){ return `<svg viewBox="0 0 150 112" aria-hidden="true"><path d="M6 56 C14 38 16 24 22 8 C30 24 34 33 45 40 C56 33 61 23 75 6 C89 23 94 33 105 40 C116 33 120 24 128 8 C134 24 136 38 144 56 Z" fill="${c}"/><rect x="22" y="55" width="106" height="40" fill="${c}"/><g fill="${c}"><rect x="30" y="95" width="6" height="15"/><rect x="50" y="95" width="6" height="15"/><rect x="94" y="95" width="6" height="15"/><rect x="114" y="95" width="6" height="15"/></g><path d="M66 95 V74 Q75 66 84 74 V95Z" fill="${g}" opacity=".55"/><line x1="30" y1="66" x2="120" y2="66" stroke="${g}" stroke-width="1.4" opacity=".4"/></svg>`; }
+function _bamboo(c,g){ return `<svg viewBox="0 0 96 154" aria-hidden="true"><g fill="${c}"><rect x="22" y="20" width="11" height="130" rx="5.5"/><rect x="46" y="6" width="12" height="144" rx="6"/><rect x="71" y="32" width="10" height="118" rx="5"/></g><g stroke="${g}" stroke-width="1.5" opacity=".5"><line x1="22" y1="52" x2="33" y2="52"/><line x1="22" y1="90" x2="33" y2="90"/><line x1="22" y1="126" x2="33" y2="126"/><line x1="46" y1="42" x2="58" y2="42"/><line x1="46" y1="82" x2="58" y2="82"/><line x1="46" y1="120" x2="58" y2="120"/><line x1="71" y1="64" x2="81" y2="64"/><line x1="71" y1="104" x2="81" y2="104"/></g><g fill="${c}"><path d="M58 28 Q76 20 90 28 Q74 36 58 31Z"/><path d="M33 60 Q15 52 4 60 Q20 68 33 63Z"/></g></svg>`; }
+function _candi(c,g){ return `<svg viewBox="0 0 130 112" aria-hidden="true"><path d="M10 110 V58 L18 58 L18 48 L26 48 L26 39 L33 39 L33 30 L40 30 L40 22 L47 22 L47 110Z" fill="${c}"/><path d="M120 110 V58 L112 58 L112 48 L104 48 L104 39 L97 39 L97 30 L90 30 L90 22 L83 22 L83 110Z" fill="${c}"/><g stroke="${g}" stroke-width="1.4" opacity=".4" fill="none"><path d="M14 70 H43 M18 84 H43 M22 96 H43 M116 70 H87 M112 84 H87 M108 96 H87"/></g></svg>`; }
+function _mosque(c,g){ return `<svg viewBox="0 0 140 112" aria-hidden="true"><path d="M44 92 V66 A26 24 0 0 1 96 66 V92Z" fill="${c}"/><rect x="68" y="50" width="4" height="9" fill="${c}"/><path d="M70 39 a7.5 7.5 0 1 0 4.5 13 a5.2 5.2 0 1 1 -4.5 -13Z" fill="${c}"/><rect x="20" y="50" width="8" height="42" rx="2" fill="${c}"/><path d="M19 50 h10 l-5 -8Z" fill="${c}"/><rect x="112" y="50" width="8" height="42" rx="2" fill="${c}"/><path d="M111 50 h10 l-5 -8Z" fill="${c}"/><rect x="10" y="90" width="120" height="20" fill="${c}"/><path d="M60 110 V99 Q70 91 80 99 V110Z" fill="${g}" opacity=".55"/></svg>`; }
+function _cloud(c,g){ return `<svg viewBox="0 0 96 54" aria-hidden="true"><path d="M8 44 C0 40 2 28 12 28 C10 16 24 12 30 20 C32 8 50 8 52 20 C60 10 78 14 76 26 C88 26 92 40 82 44 C70 48 20 48 8 44Z" fill="${c}"/><path d="M14 40 C10 30 18 26 24 30 M40 38 C36 28 46 24 52 30 M64 38 C60 30 68 28 72 32" stroke="${g}" stroke-width="1.3" fill="none" opacity=".5" stroke-linecap="round"/></svg>`; }
+function adatSil(theme){ const t=INV_THEMES[theme]||INV_THEMES.minimalis, c=t.ink, g=t.gold; switch(theme){ case 'minang':return _rumahgadang(c,g); case 'sunda':return _bamboo(c,g); case 'bali':return _candi(c,g); case 'islami':return _mosque(c,g); default:return _gunungan(c,g); } }
+function coverFrame(theme){
+  if(!isAdat(theme)) return '';
+  const t=INV_THEMES[theme], c=t.ink, g=t.gold, sil=adatSil(theme);
+  const clouds = theme==='jawa' ? `<div class="inv-cloud inv-cloud-l">${_cloud(c,g)}</div><div class="inv-cloud inv-cloud-r">${_cloud(c,g)}</div>` : '';
+  return `<div class="inv-band-top">${bandSVG(theme,'top')}</div><div class="inv-band-bot">${bandSVG(theme,'bottom')}</div><div class="inv-sil inv-sil-l">${sil}</div><div class="inv-sil inv-sil-r">${sil}</div>${clouds}`;
+}
+function adatPhoto(theme,photo){
+  const t=INV_THEMES[theme], c=t.ink, g=t.gold;
+  const wings = theme==='jawa' ? `<div class="inv-wing inv-wing-l">${_gunungan(c,g)}</div><div class="inv-wing inv-wing-r">${_gunungan(c,g)}</div>` : '';
+  const ph = photo ? `<div class="inv-photo" style="background-image:url('${esc(photo)}')"></div>` : `<div class="inv-photo nophoto">💍</div>`;
+  return `<div class="inv-photo-wrap">${wings}${ph}</div>`;
+}
 
 /* ---------- EDITOR (sisi pemilik) ---------- */
 function renderInvite(v){
@@ -2647,8 +2712,21 @@ function renderPublicInvite(d){
       </div>
     </div>` : '';
   const music = MUSIC_URL ? `<button class="inv-music" id="invMusic" data-act="inv-music" title="Putar / jeda musik">🎵</button>` : '';
-  $('#invite').innerHTML=`
-    <div class="inv">
+  const cdBoxes = `<div class="inv-cd" id="invCd"><div><b>0</b><span>Hari</span></div><div><b>0</b><span>Jam</span></div><div><b>0</b><span>Menit</span></div><div><b>0</b><span>Detik</span></div></div>`;
+  const toLine = `Kepada Yth.<br>${guestName?`<b>${esc(guestName)}</b>`:`<b>Bapak/Ibu/Saudara/i</b>`}<br><span style="opacity:.82;font-weight:400;font-size:13px">di tempat</span>`;
+  const coverHTML = isAdat(theme) ? `
+      <header class="inv-cover adat" data-th="${theme}" id="invCover">
+        ${coverFrame(theme)}
+        <div class="inv-petals" id="invCoverPetals"></div>
+        <div class="inv-cover-in">
+          ${adatPhoto(theme,photo)}
+          <div class="inv-eyebrow">The Wedding Of</div>
+          <div class="inv-names">${p1}<span class="inv-amp">&amp;</span>${p2}</div>
+          <div class="inv-date">${fmtDateLong(mainDate)}</div>
+          ${cdBoxes}
+        </div>
+        <div class="inv-scroll">⌄</div>
+      </header>` : `
       <header class="inv-cover ${photo?'':'nogphoto'}" id="invCover">
         ${photo?`<div class="inv-bg prx" data-depth="20" style="background-image:url('${esc(photo)}')"></div><div class="veil"></div>`:''}
         <div class="inv-petals" id="invCoverPetals"></div>
@@ -2657,10 +2735,36 @@ function renderPublicInvite(d){
           <div class="inv-eyebrow prx" data-depth="-10">The Wedding Of</div>
           <div class="inv-names prx" data-depth="-18">${p1}<span class="inv-amp">&amp;</span>${p2}</div>
           <div class="inv-date prx" data-depth="-6">${fmtDateLong(mainDate)}</div>
-          <div class="inv-cd" id="invCd"><div><b>0</b><span>Hari</span></div><div><b>0</b><span>Jam</span></div><div><b>0</b><span>Menit</span></div><div><b>0</b><span>Detik</span></div></div>
+          ${cdBoxes}
         </div>
         <div class="inv-scroll">⌄</div>
-      </header>
+      </header>`;
+  const openHTML = isAdat(theme) ? `
+    <div class="inv-open adat" data-th="${theme}" id="invOpen">
+      ${coverFrame(theme)}
+      <div class="inv-petals" id="invOpenPetals"></div>
+      <div class="inv-open-card">
+        ${adatPhoto(theme,photo)}
+        <div class="inv-eyebrow">Undangan Pernikahan</div>
+        <div class="inv-names">${p1}<span class="inv-amp">&amp;</span>${p2}</div>
+        <div class="inv-open-to">${toLine}</div>
+        <button class="inv-open-btn" data-act="open-inv">✉️ Buka Undangan</button>
+      </div>
+    </div>` : `
+    <div class="inv-open" id="invOpen">
+      ${photo?`<div class="inv-bg prx" data-depth="18" style="background-image:url('${esc(photo)}')"></div><div class="veil v2"></div>`:'<div class="inv-open-grad"></div>'}
+      <div class="inv-petals" id="invOpenPetals"></div>
+      <div class="inv-open-card">
+        <div class="inv-eyebrow prx" data-depth="-8">Undangan Pernikahan</div>
+        <div class="inv-open-orn">${invHeroOrn(theme)}</div>
+        <div class="inv-names prx" data-depth="-14">${p1}<span class="inv-amp">&amp;</span>${p2}</div>
+        <div class="inv-open-to">${toLine}</div>
+        <button class="inv-open-btn" data-act="open-inv">✉️ Buka Undangan</button>
+      </div>
+    </div>`;
+  $('#invite').innerHTML=`
+    <div class="inv">
+      ${coverHTML}
       ${iv.quote?`<div class="inv-sec reveal">${orn}<p class="inv-quote">"${esc(iv.quote)}"</p></div>`:''}
       ${iv.greeting?`<div class="inv-sec reveal"><span class="ic">🤍</span><h3>Bismillah</h3><p class="inv-greet">${esc(iv.greeting)}</p></div>`:''}
       ${acara?`<div class="inv-sec reveal">${orn}<span class="ic">📅</span><h3>Rangkaian Acara</h3>${acara}</div>`:''}
@@ -2690,17 +2794,7 @@ function renderPublicInvite(d){
       <footer class="inv-foot">${invDivider(theme,true)}<div class="fn">${p1} &amp; ${p2}</div><small>Undangan dibuat dengan 💕 di NaikPelaminan</small></footer>
     </div>
 
-    <div class="inv-open" id="invOpen">
-      ${photo?`<div class="inv-bg prx" data-depth="18" style="background-image:url('${esc(photo)}')"></div><div class="veil v2"></div>`:'<div class="inv-open-grad"></div>'}
-      <div class="inv-petals" id="invOpenPetals"></div>
-      <div class="inv-open-card">
-        <div class="inv-eyebrow prx" data-depth="-8">Undangan Pernikahan</div>
-        <div class="inv-open-orn">${invHeroOrn(theme)}</div>
-        <div class="inv-names prx" data-depth="-14">${p1}<span class="inv-amp">&amp;</span>${p2}</div>
-        <div class="inv-open-to">Kepada Yth.<br>${guestName?`<b>${esc(guestName)}</b>`:`<b>Bapak/Ibu/Saudara/i</b>`}<br><span style="opacity:.82;font-weight:400;font-size:13px">di tempat</span></div>
-        <button class="inv-open-btn" data-act="open-inv">✉️ Buka Undangan</button>
-      </div>
-    </div>
+    ${openHTML}
     ${music}`;
   startInviteCountdown(mainDate);
   setupInviteReveal();

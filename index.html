@@ -421,6 +421,7 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
 body.admin-mode .admin-app{display:block;min-height:100vh}
 body.admin-mode .topbar,
 body.admin-mode #localBanner,
+body.admin-mode #announceBar,
 body.admin-mode #hero,
 body.admin-mode .tabs,
 body.admin-mode #view,
@@ -440,6 +441,21 @@ body.admin-mode #appFoot{display:none!important}
 .adm-card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 .adm-card-h h2{font-family:'Fraunces',serif;font-size:18px;color:var(--ink);margin:0}
 .adm-note{font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin:0 0 12px}
+
+/* ---------- cari/sortir & meta ---------- */
+.adm-tools{display:flex;gap:8px;margin-bottom:14px}
+.adm-search{flex:1;min-width:0;border:1px solid var(--line);border-radius:11px;padding:9px 12px;font:inherit;font-size:13px;background:#FBF3F7;color:var(--ink)}
+.adm-sort{flex:0 0 auto;border:1px solid var(--line);border-radius:11px;padding:9px 10px;font:inherit;font-size:13px;background:#fff;color:var(--ink);cursor:pointer}
+.admin-meta{font-size:11px;color:var(--ink-soft)}
+
+/* ---------- pengumuman global ---------- */
+.ann-text{width:100%;min-height:72px;resize:vertical;border:1px solid var(--line);border-radius:12px;padding:11px 13px;font:inherit;font-size:13.5px;color:var(--ink);background:#FBF3F7}
+.ann-toggle{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--ink);font-weight:600;cursor:pointer}
+.ann-toggle input{width:17px;height:17px;accent-color:var(--rose)}
+.ann-bar{display:flex;align-items:center;gap:10px;margin:10px 16px 0;padding:11px 14px;background:linear-gradient(135deg,#FFF4E5,#FFE7D2);border:1px solid #FAD7B3;border-radius:13px;color:#8a5a1a}
+.ann-ic{font-size:16px;flex:0 0 auto}
+.ann-msg{flex:1;font-size:13px;line-height:1.45;font-weight:600;white-space:pre-wrap}
+.ann-x{flex:0 0 auto;border:none;background:rgba(138,90,26,.13);color:#8a5a1a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:11px;line-height:1}
 
 /* ---------- footer ---------- */
 .appfoot{max-width:1180px;margin:0 auto;padding:6px 24px 48px;text-align:center;color:var(--ink-soft)}
@@ -534,6 +550,7 @@ body.admin-mode #appFoot{display:none!important}
 </header>
 
 <div id="localBanner"></div>
+<div id="announceBar"></div>
 
 <section class="hero" id="hero"></section>
 
@@ -625,6 +642,7 @@ const CLOUD_ENABLED = SUPABASE_URL.startsWith('https://')
 let sb=null, currentUser=null, lastWriteISO=null, rtChannel=null, welcomed=false;
 let activeWeddingId=null, isWeddingOwner=true, myShareCode=null, partnerOwnerEmail='';
 let userStatus='approved', isAdmin=false;
+let adminUsers=[], announceDismissed=false;
 
 /* ---------- indikator sinkronisasi ---------- */
 function setSync(status){
@@ -1559,6 +1577,8 @@ document.addEventListener('click',e=>{
     case 'export-all': exportAllAccounts(); break;
     case 'view-account': viewAccount(id); break;
     case 'refresh-admin': loadAdminUsers(); break;
+    case 'save-announce': saveAnnounce(); break;
+    case 'dismiss-announce': announceDismissed=true; { const b=$('#announceBar'); if(b) b.innerHTML=''; } break;
     case 'change-pass': changePassModal(); break;
     case 'submit-change-pass': submitChangePass(); break;
     case 'dismiss-banner': $('#localBanner').innerHTML=''; break;
@@ -1921,6 +1941,7 @@ function enterApp(){
   renderHero(); renderTabs(); renderView(); applyBranding();
   setSync(CLOUD_ENABLED ? 'saved' : 'local');
   renderLocalBanner();
+  if(CLOUD_ENABLED) loadAnnouncement();
   if(!welcomed && state.settings.partner1==='Mempelai' && state.settings.partner2==='Pasangan'){
     welcomed=true; setTimeout(()=>toast('Selamat datang! Klik ⚙ untuk atur nama & tanggal 💍'),700);
   }
@@ -2042,8 +2063,23 @@ function enterAdminConsole(){
       <div id="admStats" class="adm-stats"></div>
       <div class="adm-card">
         <div class="adm-card-h"><h2>Kelola Pengguna</h2><button class="btn btn-ghost" data-act="refresh-admin" style="padding:7px 12px">↻ Muat ulang</button></div>
-        <p class="adm-note" style="margin-bottom:14px">Setujui pendaftar baru, atau klik <b>Lihat</b> untuk membaca isi sebuah akun.</p>
+        <div class="adm-tools">
+          <input id="admSearch" class="adm-search" placeholder="🔍 Cari nama pengguna…" autocomplete="off" autocapitalize="none">
+          <select id="admSort" class="adm-sort">
+            <option value="new">Terbaru</option>
+            <option value="old">Terlama</option>
+            <option value="name">Nama A–Z</option>
+            <option value="active">Terakhir aktif</option>
+          </select>
+        </div>
         <div id="adminList">Memuat…</div>
+      </div>
+      <div class="adm-card">
+        <div class="adm-card-h"><h2>📢 Pengumuman Global</h2></div>
+        <p class="adm-note">Pesan ini tampil sebagai banner di aplikasi <b>semua pengguna</b>. Kosongkan atau matikan untuk menyembunyikan.</p>
+        <textarea id="annText" class="ann-text" placeholder="Tulis pengumuman… (mis. Pemeliharaan Minggu 22.00–23.00)"></textarea>
+        <label class="ann-toggle"><input type="checkbox" id="annActive"> Tampilkan ke pengguna</label>
+        <button class="btn btn-pri btn-block" data-act="save-announce" style="margin-top:10px">💾 Simpan Pengumuman</button>
       </div>
       <div class="adm-card">
         <div class="adm-card-h"><h2>Data &amp; Cadangan</h2></div>
@@ -2051,7 +2087,11 @@ function enterAdminConsole(){
         <button class="btn btn-pri btn-block" data-act="export-all">⬇ Ekspor Semua Akun</button>
       </div>
     </div>`;
+  const sIn=$('#admSearch'), sSort=$('#admSort');
+  if(sIn) sIn.addEventListener('input',renderAdminList);
+  if(sSort) sSort.addEventListener('change',renderAdminList);
   loadAdminUsers();
+  loadAnnounceEditor();
 }
 async function exportAllAccounts(){
   toast('Menyiapkan ekspor…');
@@ -2107,36 +2147,100 @@ async function viewAccount(id){
   }catch(e){ console.error(e); box.innerHTML='<div class="warn">Gagal memuat detail. Jalankan dulu kebijakan admin-read di Supabase.</div>'; }
 }
 async function loadAdminUsers(){
-  const box=$('#adminList'); if(!box) return;
+  const box=$('#adminList');
   try{
-    const {data,error}=await sb.from('profiles').select('id,email,status,is_admin,created_at').order('created_at',{ascending:false});
-    if(error) throw error;
-    const all=data||[];
-    const pending=all.filter(u=>u.status==='pending');
-    const approved=all.filter(u=>u.status==='approved');
-    const rejected=all.filter(u=>u.status==='rejected');
+    const [{data:profs,error:pe},{data:weds}]=await Promise.all([
+      sb.from('profiles').select('id,email,status,is_admin,created_at').order('created_at',{ascending:false}),
+      sb.from('weddings').select('user_id,updated_at')
+    ]);
+    if(pe) throw pe;
+    const wmap={}; (weds||[]).forEach(w=>wmap[w.user_id]=w.updated_at);
+    adminUsers=(profs||[]).map(u=>({...u,_active:wmap[u.id]||null}));
+    const pending=adminUsers.filter(u=>u.status==='pending');
+    const approved=adminUsers.filter(u=>u.status==='approved');
+    const rejected=adminUsers.filter(u=>u.status==='rejected');
     const stats=$('#admStats');
     if(stats) stats.innerHTML =
-      admStat('Total', all.length, 'grape')
+      admStat('Total', adminUsers.length, 'grape')
       + admStat('Menunggu', pending.length, 'coral')
       + admStat('Disetujui', approved.length, 'mint')
       + admStat('Ditolak', rejected.length, 'rose');
-    if(!all.length){ box.innerHTML='<p class="pdf-empty">Belum ada pengguna.</p>'; return; }
-    const others=all.filter(u=>u.status!=='pending');
-    box.innerHTML =
-      (pending.length
-        ? `<div class="admin-h">Menunggu Persetujuan (${pending.length})</div>`+pending.map(adminRow).join('')
-        : `<div class="warn" style="background:#E6Faf5;color:#0f9d7a;border-color:#BFEFE2;margin:0 0 4px">✅ Tidak ada yang menunggu persetujuan.</div>`)
-      + `<div class="admin-h" style="margin-top:18px">Semua Pengguna (${all.length})</div>`
-      + others.map(adminRow).join('');
-  }catch(e){ console.error(e); box.innerHTML='<div class="warn">Gagal memuat. Pastikan SQL panel admin sudah dijalankan di Supabase.</div>'; }
+    renderAdminList();
+  }catch(e){ console.error(e); if(box) box.innerHTML='<div class="warn">Gagal memuat. Pastikan SQL panel admin sudah dijalankan di Supabase.</div>'; }
+}
+function renderAdminList(){
+  const box=$('#adminList'); if(!box) return;
+  const q=($('#admSearch')?.value||'').trim().toLowerCase();
+  const sort=$('#admSort')?.value||'new';
+  if(!adminUsers.length){ box.innerHTML='<p class="pdf-empty">Belum ada pengguna.</p>'; return; }
+  let list=adminUsers.slice();
+  if(q) list=list.filter(u=>(displayUser(u.email)||'').toLowerCase().includes(q));
+  const sorters={
+    new:(a,b)=>new Date(b.created_at)-new Date(a.created_at),
+    old:(a,b)=>new Date(a.created_at)-new Date(b.created_at),
+    name:(a,b)=>(displayUser(a.email)||'').localeCompare(displayUser(b.email)||''),
+    active:(a,b)=>new Date(b._active||0)-new Date(a._active||0)
+  };
+  list.sort(sorters[sort]||sorters.new);
+  if(!list.length){ box.innerHTML=`<p class="pdf-empty">Tidak ada pengguna cocok “${esc(q)}”.</p>`; return; }
+  const pending=list.filter(u=>u.status==='pending');
+  const others=list.filter(u=>u.status!=='pending');
+  box.innerHTML =
+    (pending.length?`<div class="admin-h">Menunggu Persetujuan (${pending.length})</div>`+pending.map(adminRow).join(''):'')
+    + (others.length?`<div class="admin-h" style="margin-top:${pending.length?'18px':'0'}">${q?'Hasil':'Semua Pengguna'} (${others.length})</div>`+others.map(adminRow).join(''):'');
 }
 function admStat(label,n,color){ return `<div class="adm-stat" style="--c:var(--${color})"><b>${n}</b><span>${label}</span></div>`; }
+function shortDate(iso){ if(!iso) return '-'; try{ return new Date(iso).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return '-'; } }
+function relTime(iso){
+  if(!iso) return '-';
+  const t=new Date(iso).getTime(); if(isNaN(t)) return '-';
+  const s=Math.floor((Date.now()-t)/1000);
+  if(s<60) return 'baru saja';
+  const mi=Math.floor(s/60); if(mi<60) return mi+' menit lalu';
+  const h=Math.floor(mi/60); if(h<24) return h+' jam lalu';
+  const d=Math.floor(h/24); if(d<7) return d+' hari lalu';
+  const w=Math.floor(d/7); if(w<5) return w+' minggu lalu';
+  const mo=Math.floor(d/30); if(mo<12) return mo+' bulan lalu';
+  return Math.floor(d/365)+' tahun lalu';
+}
+async function loadAnnounceEditor(){
+  try{
+    const {data}=await sb.from('app_config').select('value').eq('key','announcement').maybeSingle();
+    const v=(data&&data.value)||{};
+    const t=$('#annText'), a=$('#annActive');
+    if(t) t.value=v.text||'';
+    if(a) a.checked=!!v.active;
+  }catch(e){ /* tabel app_config mungkin belum dibuat */ }
+}
+async function saveAnnounce(){
+  const text=($('#annText')?.value||'').trim();
+  const active=!!($('#annActive')&&$('#annActive').checked);
+  try{
+    const {error}=await sb.from('app_config').upsert({key:'announcement',value:{text,active}},{onConflict:'key'});
+    if(error) throw error;
+    toast(active&&text?'Pengumuman aktif 📢':'Pengumuman disimpan');
+  }catch(e){ console.error(e); toast('Gagal menyimpan. Jalankan dulu SQL app_config di Supabase.'); }
+}
+async function loadAnnouncement(){
+  const bar=$('#announceBar'); if(!bar) return;
+  if(announceDismissed){ bar.innerHTML=''; return; }
+  try{
+    const {data}=await sb.from('app_config').select('value').eq('key','announcement').maybeSingle();
+    const v=(data&&data.value)||{};
+    bar.innerHTML=(v.active&&v.text)
+      ? `<div class="ann-bar"><span class="ann-ic">📢</span><span class="ann-msg">${esc(v.text)}</span><button class="ann-x" data-act="dismiss-announce" aria-label="Tutup">✕</button></div>`
+      : '';
+  }catch(e){ bar.innerHTML=''; }
+}
 function adminRow(u){
   const m={pending:['#FFF4E5','#c2691b','Menunggu'],approved:['#E6Faf5','#0f9d7a','Disetujui'],rejected:['#FFF1F3','#be123c','Ditolak']}[u.status]||['#F1F0F4','#666',u.status];
   const me=u.id===currentUser.id;
   return `<div class="admin-row">
-    <div class="admin-info"><b>${esc(displayUser(u.email)||u.id.slice(0,8))}${u.is_admin?' 👑':''}${me?' (kamu)':''}</b><span class="st-badge" style="background:${m[0]};color:${m[1]}">${m[2]}</span></div>
+    <div class="admin-info">
+      <b>${esc(displayUser(u.email)||u.id.slice(0,8))}${u.is_admin?' 👑':''}${me?' (kamu)':''}</b>
+      <span class="st-badge" style="background:${m[0]};color:${m[1]}">${m[2]}</span>
+      <span class="admin-meta">Daftar ${shortDate(u.created_at)} · ${u._active?('aktif '+relTime(u._active)):'belum ada data'}</span>
+    </div>
     <div class="admin-acts">
       <button class="btn btn-ghost" data-act="view-account" data-id="${u.id}" style="padding:7px 12px">Lihat</button>
       ${u.status!=='approved'?`<button class="btn btn-pri" data-act="approve-user" data-id="${u.id}" style="padding:7px 12px">Setujui</button>`:''}

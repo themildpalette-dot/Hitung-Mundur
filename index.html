@@ -237,6 +237,21 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
 .ses-chips{display:flex;flex-wrap:wrap;gap:8px}
 .ses-chip{padding:7px 12px;border-radius:999px;border:1.5px dashed var(--line);background:#fff;color:var(--ink-soft);font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s}
 .ses-chip:hover{border-color:var(--rose);color:var(--rose);border-style:solid}
+.vrate{color:var(--gold,#C9A24B);font-size:14px;letter-spacing:1px;margin-top:4px}
+.vchosen{display:inline-block;margin-left:8px;font-size:11px;font-weight:800;color:#0f9d7a;background:#dcfce7;border-radius:999px;padding:2px 9px;vertical-align:middle}
+.cmp-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:var(--r-md);background:#fff;box-shadow:var(--sh-1)}
+.cmp{border-collapse:collapse;width:max-content;min-width:100%;font-size:14px}
+.cmp th,.cmp td{padding:12px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;min-width:150px}
+.cmp thead th{position:sticky;top:0;background:var(--cream,#FFF6F2);font-family:var(--font-d);font-size:16px;font-weight:700;color:var(--ink);z-index:2}
+.cmp .cmp-corner{min-width:120px;width:120px}
+.cmp .cmp-lbl{position:sticky;left:0;background:#FBF4F2;font-weight:700;color:var(--ink-soft);font-size:12px;min-width:120px;width:120px;z-index:1}
+.cmp thead .cmp-corner{left:0;z-index:3}
+.cmp-stars{color:var(--gold,#C9A24B);letter-spacing:1px}
+.cmp-best{color:#0f9d7a}
+.cmp-best-tag{display:inline-block;margin-left:6px;font-size:10px;font-weight:800;color:#0f9d7a;background:#dcfce7;border-radius:999px;padding:1px 7px}
+.cmp-pick-badge{font-size:10px;font-weight:800;color:#0f9d7a;margin-top:3px}
+.cmp-acts{display:flex;gap:6px;flex-wrap:wrap}
+.cmp-choose.on{background:#dcfce7;color:#0f9d7a;border-color:#0f9d7a}
 .badge{padding:5px 11px;border-radius:999px;font-size:11.5px;font-weight:800;white-space:nowrap}
 .b-dihubungi{background:#FFF4E5;color:#c2691b}
 .b-booking{background:#EEF0FF;color:#5b4bd6}
@@ -750,6 +765,16 @@ body.admin-mode #appFoot{display:none!important}
 #pdfStage .pdf-phase{font-size:13px;font-weight:600;padding:7px 2px;border-bottom:1px solid #F4E6EC;display:flex;justify-content:space-between}
 #pdfStage .pdf-foot{text-align:center;padding:22px;color:#7A5C70;font-size:12px;font-weight:600;border-top:1px solid #F0DCE4;margin-top:8px}
 #pdfStage .pdf-foot .fn{font-family:var(--font-d);font-weight:600;font-size:15px;color:#43233A}
+#pdfStage .cmpx{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12.5px}
+#pdfStage .cmpx th,#pdfStage .cmpx td{border:1px solid #F0DCE4;padding:9px 10px;vertical-align:top;text-align:left;word-wrap:break-word}
+#pdfStage .cmpx thead th{background:#FFF1F6;color:#43233A;font-weight:800;font-size:13px}
+#pdfStage .cmpx-corner{background:#FFF9F4 !important;width:118px}
+#pdfStage .cmpx-lbl{background:#FBF1F5;font-weight:700;color:#7A5C70;width:118px}
+#pdfStage .cmpx-vh{text-align:center !important}
+#pdfStage .cmpx-pick{margin-top:4px;display:inline-block;background:#dcfce7;color:#0f9d7a;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px}
+#pdfStage .cmpx-stars{color:#f5b301;letter-spacing:1px}
+#pdfStage .cmpx-tag{display:inline-block;background:#dcfce7;color:#0f9d7a;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:999px;vertical-align:middle}
+.cmp-dim{color:#c9b3bb}
 
 /* ---------- moodboard ---------- */
 .mood-grid{columns:3;column-gap:14px}
@@ -1073,7 +1098,7 @@ function renderCountdown(){
 }
 
 /* ============================================================ RENDER: TABS ============================================================ */
-const TABS=[['dashboard','📊','Ringkasan'],['budget','💰','Anggaran'],['vendor','🤝','Vendor'],['checklist','✅','Checklist'],['guests','💌','Tamu'],['seserahan','🎁','Seserahan'],['moodboard','🎨','Inspirasi']];
+const TABS=[['dashboard','📊','Ringkasan'],['budget','💰','Anggaran'],['vendor','🤝','Vendor'],['compare','⚖️','Bandingkan'],['checklist','✅','Checklist'],['guests','💌','Tamu'],['seserahan','🎁','Seserahan'],['moodboard','🎨','Inspirasi']];
 function renderTabs(){
   $('#tabs').innerHTML=TABS.map(([id,emo,lbl])=>
     `<button class="tab ${state.activeTab===id?'active':''}" data-act="tab" data-tab="${id}"><span class="emo">${emo}</span>${lbl}</button>`
@@ -1085,7 +1110,7 @@ function switchTab(t){ state.activeTab=t; save(); renderTabs(); renderView(); wi
 function renderView(){
   const v=$('#view');
   if(state.activeTab==='invite') state.activeTab='dashboard';
-  (({dashboard:renderDashboard,budget:renderBudget,vendor:renderVendors,checklist:renderChecklist,guests:renderGuests,seserahan:renderSeserahan,moodboard:renderMoodboard}[state.activeTab])||renderDashboard)(v);
+  (({dashboard:renderDashboard,budget:renderBudget,vendor:renderVendors,compare:renderCompare,checklist:renderChecklist,guests:renderGuests,seserahan:renderSeserahan,moodboard:renderMoodboard}[state.activeTab])||renderDashboard)(v);
 }
 
 /* ---------- donut svg ---------- */
@@ -1362,7 +1387,7 @@ function vendorCard(x){
   const tags = cats.map(c=>{ const col=PALETTE[c.length%PALETTE.length]; return `<span class="vtag" style="background:${hexA(col,.14)};color:${col}">${esc(c)}</span>`; }).join('');
   return `<div class="vendor">
     <div class="vendor-head">
-      <div><h3>${esc(x.name)}</h3>${tags?`<div class="vtags">${tags}</div>`:''}</div>
+      <div><h3>${esc(x.name)}${x.chosen?'<span class="vchosen">✓ Pilihan</span>':''}</h3>${tags?`<div class="vtags">${tags}</div>`:''}${x.rating?`<div class="vrate">${'★'.repeat(x.rating)}${'☆'.repeat(5-x.rating)}</div>`:''}</div>
       <span class="badge b-${x.status}">${V_STATUS[x.status]}</span>
     </div>
     <div class="vendor-money">
@@ -1377,6 +1402,58 @@ function vendorCard(x){
       <button class="va del" data-act="del-vendor" data-id="${x.id}" title="Hapus">🗑</button>
     </div>
   </div>`;
+}
+
+let compareCat='';
+function renderCompare(v){
+  const presentCats=[...new Set(state.vendors.flatMap(vendorCats))];
+  const orderedCats=VCATS.filter(c=>presentCats.includes(c)).concat(presentCats.filter(c=>!VCATS.includes(c)));
+  const catCount=c=>state.vendors.filter(x=>vendorCats(x).includes(c)).length;
+  if(state.vendors.length===0){
+    v.innerHTML=`<div class="section-head"><div><h2>Bandingkan Vendor</h2><p>Bandingkan beberapa vendor berdampingan</p></div></div>
+      <div class="card empty"><div class="em">⚖️</div><h3>Belum ada vendor untuk dibandingkan</h3><p>Tambahkan beberapa vendor di tab Vendor dulu (mis. 3 fotografer), lalu bandingkan di sini.</p><button class="btn btn-pri" data-act="tab" data-tab="vendor">🤝 Ke Tab Vendor</button></div>`;
+    return;
+  }
+  if(!compareCat || !orderedCats.includes(compareCat)) compareCat = orderedCats.find(c=>catCount(c)>=2) || orderedCats[0] || '';
+  const chips=orderedCats.map(c=>`<button class="${compareCat===c?'on':''}" data-act="cmpcat" data-c="${esc(c)}">${esc(c)} (${catCount(c)})</button>`).join('');
+  const vlist=state.vendors.filter(x=>vendorCats(x).includes(compareCat));
+  const stars=n=>`${'★'.repeat(n||0)}${'☆'.repeat(5-(n||0))}`;
+  let table;
+  if(vlist.length<2){
+    table=`<div class="card empty"><div class="em">🔍</div><h3>Minimal 2 vendor untuk dibandingkan</h3><p>Kategori "${esc(compareCat)}" baru punya ${vlist.length} vendor. Tambahkan vendor lain di kategori yang sama.</p><button class="btn btn-pri" data-act="add-vendor">+ Tambah Vendor</button></div>`;
+  }else{
+    const prices=vlist.filter(x=>(+x.price)>0).map(x=>+x.price);
+    const minPrice=prices.length?Math.min(...prices):0;
+    const maxRating=Math.max(0,...vlist.map(x=>+x.rating||0));
+    const row=(label,fn)=>`<tr><td class="cmp-lbl">${label}</td>${vlist.map(x=>`<td>${fn(x)}</td>`).join('')}</tr>`;
+    const head=vlist.map(x=>`<th>${esc(x.name)}${x.chosen?'<div class="cmp-pick-badge">✓ Pilihan</div>':''}</th>`).join('');
+    table=`<div class="cmp-wrap"><table class="cmp">
+      <thead><tr><th class="cmp-corner"></th>${head}</tr></thead>
+      <tbody>
+        ${row('Rating',x=>`<span class="cmp-stars">${stars(+x.rating)}</span>${(+x.rating)>0&&(+x.rating)===maxRating?'<span class="cmp-best-tag">tertinggi</span>':''}`)}
+        ${row('Harga',x=>`<b class="${(+x.price)>0&&(+x.price)===minPrice?'cmp-best':''}">${rp(+x.price||0)}</b>${(+x.price)>0&&(+x.price)===minPrice?'<span class="cmp-best-tag">termurah</span>':''}`)}
+        ${row('Sudah Dibayar',x=>rp(+x.paid||0))}
+        ${row('Sisa Tagihan',x=>rp(Math.max(0,(+x.price||0)-(+x.paid||0))))}
+        ${row('Status',x=>`<span class="badge b-${x.status}">${V_STATUS[x.status]}</span>`)}
+        ${row('Kelebihan',x=>x.pros?esc(x.pros):'<span class="cmp-dim">—</span>')}
+        ${row('Kekurangan',x=>x.cons?esc(x.cons):'<span class="cmp-dim">—</span>')}
+        ${row('Narahubung',x=>esc(x.contact||'-'))}
+        ${row('No. HP / WA',x=>x.phone?esc(x.phone):'-')}
+        ${row('Catatan',x=>x.notes?esc(x.notes):'-')}
+        ${row('',x=>{const wa=x.phone?`https://wa.me/${x.phone.replace(/\D/g,'').replace(/^0/,'62')}`:'';return `<div class="cmp-acts">${wa?`<a class="va wa" href="${wa}" target="_blank" rel="noopener">💬</a>`:''}<button class="va" data-act="edit-vendor" data-id="${x.id}">✏️</button><button class="va cmp-choose${x.chosen?' on':''}" data-act="cmp-choose" data-id="${x.id}">${x.chosen?'✓ Pilihan':'⭐ Pilih'}</button></div>`;})}
+      </tbody>
+    </table></div>`;
+  }
+  v.innerHTML=`
+  <div class="section-head"><div><h2>Bandingkan Vendor</h2><p>Pilih kategori untuk membandingkan vendor berdampingan</p></div>${vlist.length>=2?`<button class="btn btn-ghost" data-act="export-compare">📥 Ekspor PDF</button>`:''}</div>
+  <div class="vfilter">${chips}</div>
+  ${table}`;
+}
+function chooseVendor(id){
+  const v=state.vendors.find(x=>x.id===id); if(!v) return;
+  const turnOn=!v.chosen;
+  if(turnOn){ const myCats=vendorCats(v); state.vendors.forEach(o=>{ if(o.id!==id && vendorCats(o).some(c=>myCats.includes(c))) o.chosen=false; }); }
+  v.chosen=turnOn; save(); renderCompare($('#view'));
 }
 
 /* ============================================================ CHECKLIST ============================================================ */
@@ -1760,54 +1837,103 @@ function buildPdfStage(){
     <div class="pdf-foot"><div class="fn">💍 ${esc(APP_NAME)}</div>Dibuat dengan 💕 · ${new Date().getFullYear()}</div>
   `;
 }
+async function stageToPdf(filename, blockSel){
+  const stage=$('#pdfStage');
+  const scale=2;
+  const canvas=await html2canvas(stage,{scale,backgroundColor:'#FFF9F4',useCORS:true,logging:false});
+  const cw=canvas.width, chTotal=canvas.height;
+  const pageCanvasPx=Math.floor(cw*297/210);   // tinggi 1 halaman A4 dalam piksel kanvas
+  // Kumpulkan "batas aman" = bagian bawah tiap blok yang TIDAK boleh terpotong
+  const stageTop=stage.getBoundingClientRect().top;
+  const blocks=stage.querySelectorAll(blockSel);
+  const cuts=[];
+  blocks.forEach(el=>{
+    const bottom=(el.getBoundingClientRect().bottom-stageTop)*scale;
+    cuts.push(Math.min(chTotal,Math.round(bottom)));
+  });
+  cuts.push(chTotal);
+  const safe=[...new Set(cuts)].sort((a,b)=>a-b);
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF('p','mm','a4');
+  let y0=0, first=true, guard=0;
+  while(y0<chTotal-1 && guard++<60){
+    let y1=y0+pageCanvasPx;
+    if(y1<chTotal){
+      let best=-1;
+      for(const c of safe){ if(c>y0+10 && c<=y1) best=c; }   // batas aman terbesar yg muat
+      if(best>y0) y1=best;                                    // potong di gap antar-baris
+    }else y1=chTotal;
+    const sliceH=y1-y0;
+    const pc=document.createElement('canvas');
+    pc.width=cw; pc.height=sliceH;
+    const ctx=pc.getContext('2d');
+    ctx.fillStyle='#FFF9F4'; ctx.fillRect(0,0,cw,sliceH);
+    ctx.drawImage(canvas,0,y0,cw,sliceH,0,0,cw,sliceH);
+    const img=pc.toDataURL('image/jpeg',0.92);
+    const imgH=sliceH*210/cw;   // tinggi gambar dalam mm (≤297)
+    if(!first) pdf.addPage();
+    pdf.setFillColor(255,249,244); pdf.rect(0,0,210,297,'F');
+    pdf.addImage(img,'JPEG',0,0,210,imgH,undefined,'FAST');
+    first=false; y0=y1;
+  }
+  pdf.save(filename);
+}
 async function generatePdf(){
   if(!window.html2canvas || !window.jspdf){ toast('Komponen PDF belum termuat, coba lagi sebentar'); return; }
   closeModal(); toast('Menyiapkan PDF…');
   buildPdfStage();
   await new Promise(r=>setTimeout(r,350));   // beri waktu font & layout siap
   try{
-    const stage=$('#pdfStage');
-    const scale=2;
-    const canvas=await html2canvas(stage,{scale,backgroundColor:'#FFF9F4',useCORS:true,logging:false});
-    const cw=canvas.width, chTotal=canvas.height;
-    const pageCanvasPx=Math.floor(cw*297/210);   // tinggi 1 halaman A4 dalam piksel kanvas
-
-    // Kumpulkan "batas aman" = bagian bawah tiap blok yang TIDAK boleh terpotong
-    const stageTop=stage.getBoundingClientRect().top;
-    const blocks=stage.querySelectorAll('.pdf-hero,.pdf-stats,.pdf-row,.pdf-total,.pdf-prog,.pdf-phase,.pdf-empty,.pdf-foot');
-    const cuts=[];
-    blocks.forEach(el=>{
-      const bottom=(el.getBoundingClientRect().bottom-stageTop)*scale;
-      cuts.push(Math.min(chTotal,Math.round(bottom)));
-    });
-    cuts.push(chTotal);
-    const safe=[...new Set(cuts)].sort((a,b)=>a-b);
-
-    const {jsPDF}=window.jspdf;
-    const pdf=new jsPDF('p','mm','a4');
-    let y0=0, first=true, guard=0;
-    while(y0<chTotal-1 && guard++<60){
-      let y1=y0+pageCanvasPx;
-      if(y1<chTotal){
-        let best=-1;
-        for(const c of safe){ if(c>y0+10 && c<=y1) best=c; }   // batas aman terbesar yg muat
-        if(best>y0) y1=best;                                    // potong di gap antar-baris
-      }else y1=chTotal;
-      const sliceH=y1-y0;
-      const pc=document.createElement('canvas');
-      pc.width=cw; pc.height=sliceH;
-      const ctx=pc.getContext('2d');
-      ctx.fillStyle='#FFF9F4'; ctx.fillRect(0,0,cw,sliceH);
-      ctx.drawImage(canvas,0,y0,cw,sliceH,0,0,cw,sliceH);
-      const img=pc.toDataURL('image/jpeg',0.92);
-      const imgH=sliceH*210/cw;   // tinggi gambar dalam mm (≤297)
-      if(!first) pdf.addPage();
-      pdf.setFillColor(255,249,244); pdf.rect(0,0,210,297,'F');
-      pdf.addImage(img,'JPEG',0,0,210,imgH,undefined,'FAST');
-      first=false; y0=y1;
-    }
     const fn=`pernikahan-${(state.settings.partner1||'mempelai')}-${(state.settings.partner2||'pasangan')}.pdf`.toLowerCase().replace(/[^a-z0-9-]+/g,'-');
-    pdf.save(fn);
+    await stageToPdf(fn,'.pdf-hero,.pdf-stats,.pdf-row,.pdf-total,.pdf-prog,.pdf-phase,.pdf-empty,.pdf-foot');
+    toast('PDF tersimpan 📄');
+  }catch(e){ console.error(e); toast('Gagal membuat PDF'); }
+  finally{ $('#pdfStage').innerHTML=''; }
+}
+function buildComparePdfStage(cat,vlist){
+  const s=state.settings;
+  const stars=n=>`${'★'.repeat(n||0)}${'☆'.repeat(5-(n||0))}`;
+  const prices=vlist.filter(x=>(+x.price)>0).map(x=>+x.price);
+  const minPrice=prices.length?Math.min(...prices):0;
+  const maxRating=Math.max(0,...vlist.map(x=>+x.rating||0));
+  const th=vlist.map(x=>`<th class="cmpx-vh">${esc(x.name)}${x.chosen?'<div class="cmpx-pick">✓ Pilihan</div>':''}</th>`).join('');
+  const row=(label,fn)=>`<tr class="cmpx-row"><td class="cmpx-lbl">${label}</td>${vlist.map(x=>`<td>${fn(x)}</td>`).join('')}</tr>`;
+  const rows=[
+    row('Rating',x=>`<span class="cmpx-stars">${stars(+x.rating)}</span>${(+x.rating)>0&&(+x.rating)===maxRating?' <span class="cmpx-tag">tertinggi</span>':''}`),
+    row('Harga',x=>`<b>${rp(+x.price||0)}</b>${(+x.price)>0&&(+x.price)===minPrice?' <span class="cmpx-tag">termurah</span>':''}`),
+    row('Sudah Dibayar',x=>rp(+x.paid||0)),
+    row('Sisa Tagihan',x=>rp(Math.max(0,(+x.price||0)-(+x.paid||0)))),
+    row('Status',x=>V_STATUS[x.status]||'-'),
+    row('Kelebihan',x=>x.pros?esc(x.pros):'—'),
+    row('Kekurangan',x=>x.cons?esc(x.cons):'—'),
+    row('Narahubung',x=>esc(x.contact||'-')),
+    row('No. HP / WA',x=>esc(x.phone||'-')),
+    row('Catatan',x=>x.notes?esc(x.notes):'—'),
+  ].join('');
+  $('#pdfStage').innerHTML=`
+    <div class="pdf-hero">
+      <div class="pdf-ring">⚖️</div>
+      <div class="pdf-eyebrow">Perbandingan Vendor</div>
+      <div class="pdf-names">${esc(cat)}</div>
+      <div class="pdf-date">${esc(s.partner1||'Mempelai')} &amp; ${esc(s.partner2||'Pasangan')}</div>
+      <div class="pdf-count">${vlist.length} vendor dibandingkan</div>
+    </div>
+    <div class="pdf-body">
+      <table class="cmpx"><thead><tr><th class="cmpx-corner"></th>${th}</tr></thead><tbody>${rows}</tbody></table>
+      <div class="pdf-foot" style="margin-top:24px;text-align:center;color:#9A6E72;font-size:12px">Dibuat dengan NaikPelaminan · naikpelaminan.space</div>
+    </div>`;
+}
+async function generateComparePdf(){
+  if(!window.html2canvas || !window.jspdf){ toast('Komponen PDF belum termuat, coba lagi sebentar'); return; }
+  const cat=compareCat;
+  const vlist=state.vendors.filter(x=>vendorCats(x).includes(cat));
+  if(vlist.length<2){ toast('Minimal 2 vendor untuk diekspor'); return; }
+  toast('Menyiapkan PDF…');
+  buildComparePdfStage(cat,vlist);
+  await new Promise(r=>setTimeout(r,350));
+  try{
+    const fn=`banding-vendor-${cat}.pdf`.toLowerCase().replace(/[^a-z0-9-]+/g,'-');
+    await stageToPdf(fn,'.pdf-hero,.cmpx-row,.pdf-foot');
     toast('PDF tersimpan 📄');
   }catch(e){ console.error(e); toast('Gagal membuat PDF'); }
   finally{ $('#pdfStage').innerHTML=''; }
@@ -1832,8 +1958,18 @@ function vendorModal(id){
         <div class="mfield"><label>Harga / Kontrak</label><div class="money-in"><span class="rp">Rp</span><input id="v-price" inputmode="numeric" value="${x.price?grp(x.price):''}" placeholder="0"></div></div>
         <div class="mfield"><label>Sudah Dibayar</label><div class="money-in"><span class="rp">Rp</span><input id="v-paid" inputmode="numeric" value="${x.paid?grp(x.paid):''}" placeholder="0"></div></div>
       </div>
-      <div class="mfield"><label>Status</label><select id="v-status">
-        ${Object.entries(V_STATUS).map(([k,l])=>`<option value="${k}" ${x.status===k?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="mrow">
+        <div class="mfield"><label>Status</label><select id="v-status">
+          ${Object.entries(V_STATUS).map(([k,l])=>`<option value="${k}" ${x.status===k?'selected':''}>${l}</option>`).join('')}</select></div>
+        <div class="mfield"><label>Rating / Kesukaan</label><select id="v-rating">
+          <option value="0"${!x.rating?' selected':''}>— Belum dinilai —</option>
+          ${[5,4,3,2,1].map(n=>`<option value="${n}"${(+x.rating)===n?' selected':''}>${'★'.repeat(n)} (${n})</option>`).join('')}
+        </select></div>
+      </div>
+      <div class="mrow">
+        <div class="mfield"><label>Kelebihan</label><textarea id="v-pros" placeholder="Mis. porsi banyak, rasa enak, ramah">${esc(x.pros||'')}</textarea></div>
+        <div class="mfield"><label>Kekurangan</label><textarea id="v-cons" placeholder="Mis. lokasi jauh, DP besar">${esc(x.cons||'')}</textarea></div>
+      </div>
       <div class="mfield"><label>Catatan</label><textarea id="v-notes" placeholder="DP 50%, sisa H-7…">${esc(x.notes)}</textarea></div>
       <div class="modal-foot">
         ${id?`<button class="btn btn-danger" data-act="del-vendor" data-id="${id}">Hapus</button>`:''}
@@ -1899,7 +2035,7 @@ function saveVendor(id){
     name, cats, category:cats.join(', '), contact:$('#v-contact').value.trim(), phone:$('#v-phone').value.trim(),
     price:parseInt($('#v-price').value.replace(/\D/g,'')||'0',10),
     paid:parseInt($('#v-paid').value.replace(/\D/g,'')||'0',10),
-    status:$('#v-status').value, notes:$('#v-notes').value.trim()
+    status:$('#v-status').value, rating:parseInt($('#v-rating').value||'0',10), pros:$('#v-pros').value.trim(), cons:$('#v-cons').value.trim(), notes:$('#v-notes').value.trim()
   };
   let celebrate=false;
   if(id){ const v=state.vendors.find(v=>v.id===id); const wasDone=v.status==='lunas'||v.status==='selesai'; Object.assign(v,data); celebrate=!wasDone&&(data.status==='lunas'||data.status==='selesai'); }
@@ -2022,6 +2158,9 @@ document.addEventListener('click',e=>{
       break;
     case 'vfilter': vendorFilter=t.dataset.f; renderVendors($('#view')); break;
     case 'vcatfilter': vendorCatFilter=t.dataset.c; renderVendors($('#view')); break;
+    case 'cmpcat': compareCat=t.dataset.c; renderCompare($('#view')); break;
+    case 'cmp-choose': chooseVendor(id); break;
+    case 'export-compare': generateComparePdf(); break;
     case 'toggle-task': {
       const task=state.checklist.find(x=>x.id===id); task.done=!task.done; save(); renderChecklist($('#view'));
       if(task.done){

@@ -775,6 +775,15 @@ body.admin-mode #appFoot{display:none!important}
 #pdfStage .cmpx-stars{color:#f5b301;letter-spacing:1px}
 #pdfStage .cmpx-tag{display:inline-block;background:#dcfce7;color:#0f9d7a;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:999px;vertical-align:middle}
 .cmp-dim{color:#c9b3bb}
+.fhint{font-weight:400;color:var(--ink-soft);font-size:11.5px}
+.rating-auto{font-size:18px;letter-spacing:2px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:4px 0}
+.rating-auto .ra-stars{color:#f5b301}
+.rating-auto .ra-off{color:#e3d3da}
+.rating-auto .ra-meta{font-size:12px;letter-spacing:normal;color:var(--ink-soft);font-weight:600}
+.cmp-ul{margin:0;padding-left:16px}
+.cmp-ul li{margin:1px 0}
+#pdfStage .cmpx-ul{margin:0;padding-left:16px}
+#pdfStage .cmpx-ul li{margin:1px 0}
 
 /* ---------- moodboard ---------- */
 .mood-grid{columns:3;column-gap:14px}
@@ -1387,7 +1396,7 @@ function vendorCard(x){
   const tags = cats.map(c=>{ const col=PALETTE[c.length%PALETTE.length]; return `<span class="vtag" style="background:${hexA(col,.14)};color:${col}">${esc(c)}</span>`; }).join('');
   return `<div class="vendor">
     <div class="vendor-head">
-      <div><h3>${esc(x.name)}${x.chosen?'<span class="vchosen">✓ Pilihan</span>':''}</h3>${tags?`<div class="vtags">${tags}</div>`:''}${x.rating?`<div class="vrate">${'★'.repeat(x.rating)}${'☆'.repeat(5-x.rating)}</div>`:''}</div>
+      <div><h3>${esc(x.name)}${x.chosen?'<span class="vchosen">✓ Pilihan</span>':''}</h3>${tags?`<div class="vtags">${tags}</div>`:''}${vendorRating(x)?`<div class="vrate">${'★'.repeat(vendorRating(x))}${'☆'.repeat(5-vendorRating(x))}</div>`:''}</div>
       <span class="badge b-${x.status}">${V_STATUS[x.status]}</span>
     </div>
     <div class="vendor-money">
@@ -1424,19 +1433,20 @@ function renderCompare(v){
   }else{
     const prices=vlist.filter(x=>(+x.price)>0).map(x=>+x.price);
     const minPrice=prices.length?Math.min(...prices):0;
-    const maxRating=Math.max(0,...vlist.map(x=>+x.rating||0));
+    const maxRating=Math.max(0,...vlist.map(x=>vendorRating(x)));
+    const bullets=s=>{const L=vLines(s);return L.length?`<ul class="cmp-ul">${L.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:'<span class="cmp-dim">—</span>';};
     const row=(label,fn)=>`<tr><td class="cmp-lbl">${label}</td>${vlist.map(x=>`<td>${fn(x)}</td>`).join('')}</tr>`;
     const head=vlist.map(x=>`<th>${esc(x.name)}${x.chosen?'<div class="cmp-pick-badge">✓ Pilihan</div>':''}</th>`).join('');
     table=`<div class="cmp-wrap"><table class="cmp">
       <thead><tr><th class="cmp-corner"></th>${head}</tr></thead>
       <tbody>
-        ${row('Rating',x=>`<span class="cmp-stars">${stars(+x.rating)}</span>${(+x.rating)>0&&(+x.rating)===maxRating?'<span class="cmp-best-tag">tertinggi</span>':''}`)}
+        ${row('Rating',x=>{const r=vendorRating(x);return `<span class="cmp-stars">${stars(r)}</span>${r>0&&r===maxRating?'<span class="cmp-best-tag">tertinggi</span>':''}`;})}
         ${row('Harga',x=>`<b class="${(+x.price)>0&&(+x.price)===minPrice?'cmp-best':''}">${rp(+x.price||0)}</b>${(+x.price)>0&&(+x.price)===minPrice?'<span class="cmp-best-tag">termurah</span>':''}`)}
         ${row('Sudah Dibayar',x=>rp(+x.paid||0))}
         ${row('Sisa Tagihan',x=>rp(Math.max(0,(+x.price||0)-(+x.paid||0))))}
         ${row('Status',x=>`<span class="badge b-${x.status}">${V_STATUS[x.status]}</span>`)}
-        ${row('Kelebihan',x=>x.pros?esc(x.pros):'<span class="cmp-dim">—</span>')}
-        ${row('Kekurangan',x=>x.cons?esc(x.cons):'<span class="cmp-dim">—</span>')}
+        ${row('Kelebihan',x=>bullets(x.pros))}
+        ${row('Kekurangan',x=>bullets(x.cons))}
         ${row('Narahubung',x=>esc(x.contact||'-'))}
         ${row('No. HP / WA',x=>x.phone?esc(x.phone):'-')}
         ${row('Catatan',x=>x.notes?esc(x.notes):'-')}
@@ -1895,17 +1905,18 @@ function buildComparePdfStage(cat,vlist){
   const stars=n=>`${'★'.repeat(n||0)}${'☆'.repeat(5-(n||0))}`;
   const prices=vlist.filter(x=>(+x.price)>0).map(x=>+x.price);
   const minPrice=prices.length?Math.min(...prices):0;
-  const maxRating=Math.max(0,...vlist.map(x=>+x.rating||0));
+  const maxRating=Math.max(0,...vlist.map(x=>vendorRating(x)));
+  const bullets=str=>{const L=vLines(str);return L.length?`<ul class="cmpx-ul">${L.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:'—';};
   const th=vlist.map(x=>`<th class="cmpx-vh">${esc(x.name)}${x.chosen?'<div class="cmpx-pick">✓ Pilihan</div>':''}</th>`).join('');
   const row=(label,fn)=>`<tr class="cmpx-row"><td class="cmpx-lbl">${label}</td>${vlist.map(x=>`<td>${fn(x)}</td>`).join('')}</tr>`;
   const rows=[
-    row('Rating',x=>`<span class="cmpx-stars">${stars(+x.rating)}</span>${(+x.rating)>0&&(+x.rating)===maxRating?' <span class="cmpx-tag">tertinggi</span>':''}`),
+    row('Rating',x=>{const r=vendorRating(x);return `<span class="cmpx-stars">${stars(r)}</span>${r>0&&r===maxRating?' <span class="cmpx-tag">tertinggi</span>':''}`;}),
     row('Harga',x=>`<b>${rp(+x.price||0)}</b>${(+x.price)>0&&(+x.price)===minPrice?' <span class="cmpx-tag">termurah</span>':''}`),
     row('Sudah Dibayar',x=>rp(+x.paid||0)),
     row('Sisa Tagihan',x=>rp(Math.max(0,(+x.price||0)-(+x.paid||0)))),
     row('Status',x=>V_STATUS[x.status]||'-'),
-    row('Kelebihan',x=>x.pros?esc(x.pros):'—'),
-    row('Kekurangan',x=>x.cons?esc(x.cons):'—'),
+    row('Kelebihan',x=>bullets(x.pros)),
+    row('Kekurangan',x=>bullets(x.cons)),
     row('Narahubung',x=>esc(x.contact||'-')),
     row('No. HP / WA',x=>esc(x.phone||'-')),
     row('Catatan',x=>x.notes?esc(x.notes):'—'),
@@ -1916,7 +1927,6 @@ function buildComparePdfStage(cat,vlist){
       <div class="pdf-eyebrow">Perbandingan Vendor</div>
       <div class="pdf-names">${esc(cat)}</div>
       <div class="pdf-date">${esc(s.partner1||'Mempelai')} &amp; ${esc(s.partner2||'Pasangan')}</div>
-      <div class="pdf-count">${vlist.length} vendor dibandingkan</div>
     </div>
     <div class="pdf-body">
       <table class="cmpx"><thead><tr><th class="cmpx-corner"></th>${th}</tr></thead><tbody>${rows}</tbody></table>
@@ -1939,6 +1949,17 @@ async function generateComparePdf(){
   finally{ $('#pdfStage').innerHTML=''; }
 }
 
+function vLines(s){ return String(s||'').split('\n').map(t=>t.trim()).filter(Boolean); }
+function autoRating(pros,cons){ const P=vLines(pros).length, C=vLines(cons).length; if(P+C===0) return 0; return Math.max(1,Math.min(5,Math.round(1+4*P/(P+C)))); }
+function vendorRating(v){ const r=autoRating(v&&v.pros,v&&v.cons); return r||Math.round(+((v&&v.rating)||0)); }
+function updateAutoRating(){
+  const el=document.getElementById('v-rating-preview'); if(!el) return;
+  const P=vLines($('#v-pros').value).length, C=vLines($('#v-cons').value).length;
+  const r=autoRating($('#v-pros').value,$('#v-cons').value);
+  el.innerHTML = r
+    ? `<span class="ra-stars">${'★'.repeat(r)}<span class="ra-off">${'☆'.repeat(5-r)}</span></span> <span class="ra-meta">${r}/5 · ${P} kelebihan, ${C} kekurangan</span>`
+    : `<span class="ra-stars"><span class="ra-off">☆☆☆☆☆</span></span> <span class="ra-meta">Belum ada poin — isi kelebihan/kekurangan dulu</span>`;
+}
 function vendorModal(id){
   const x = id? state.vendors.find(v=>v.id===id) : {name:'',category:'',cats:[],contact:'',phone:'',price:0,paid:0,status:'dihubungi',notes:''};
   const sel = vendorCats(x);
@@ -1958,18 +1979,17 @@ function vendorModal(id){
         <div class="mfield"><label>Harga / Kontrak</label><div class="money-in"><span class="rp">Rp</span><input id="v-price" inputmode="numeric" value="${x.price?grp(x.price):''}" placeholder="0"></div></div>
         <div class="mfield"><label>Sudah Dibayar</label><div class="money-in"><span class="rp">Rp</span><input id="v-paid" inputmode="numeric" value="${x.paid?grp(x.paid):''}" placeholder="0"></div></div>
       </div>
+      <div class="mfield"><label>Status</label><select id="v-status">
+        ${Object.entries(V_STATUS).map(([k,l])=>`<option value="${k}" ${x.status===k?'selected':''}>${l}</option>`).join('')}</select></div>
       <div class="mrow">
-        <div class="mfield"><label>Status</label><select id="v-status">
-          ${Object.entries(V_STATUS).map(([k,l])=>`<option value="${k}" ${x.status===k?'selected':''}>${l}</option>`).join('')}</select></div>
-        <div class="mfield"><label>Rating / Kesukaan</label><select id="v-rating">
-          <option value="0"${!x.rating?' selected':''}>— Belum dinilai —</option>
-          ${[5,4,3,2,1].map(n=>`<option value="${n}"${(+x.rating)===n?' selected':''}>${'★'.repeat(n)} (${n})</option>`).join('')}
-        </select></div>
+        <div class="mfield"><label>Kelebihan <span class="fhint">(satu per baris)</span></label>
+          <textarea id="v-pros" rows="3" placeholder="Porsi banyak&#10;Rasa enak&#10;Ramah & responsif" oninput="updateAutoRating()">${esc(x.pros||'')}</textarea></div>
+        <div class="mfield"><label>Kekurangan <span class="fhint">(satu per baris)</span></label>
+          <textarea id="v-cons" rows="3" placeholder="Lokasi agak jauh&#10;DP 50%" oninput="updateAutoRating()">${esc(x.cons||'')}</textarea></div>
       </div>
-      <div class="mrow">
-        <div class="mfield"><label>Kelebihan</label><textarea id="v-pros" placeholder="Mis. porsi banyak, rasa enak, ramah">${esc(x.pros||'')}</textarea></div>
-        <div class="mfield"><label>Kekurangan</label><textarea id="v-cons" placeholder="Mis. lokasi jauh, DP besar">${esc(x.cons||'')}</textarea></div>
-      </div>
+      <div class="mfield"><label>Rating Otomatis</label>
+        <div id="v-rating-preview" class="rating-auto"></div>
+        <div class="fhint">Dihitung dari perbandingan jumlah kelebihan & kekurangan</div></div>
       <div class="mfield"><label>Catatan</label><textarea id="v-notes" placeholder="DP 50%, sisa H-7…">${esc(x.notes)}</textarea></div>
       <div class="modal-foot">
         ${id?`<button class="btn btn-danger" data-act="del-vendor" data-id="${id}">Hapus</button>`:''}
@@ -1977,6 +1997,7 @@ function vendorModal(id){
       </div>
     </div>`);
   ['v-price','v-paid'].forEach(idf=>{const e=$('#'+idf);e.addEventListener('input',()=>{const d=e.value.replace(/\D/g,'');e.value=d?grp(parseInt(d,10)):'';});});
+  updateAutoRating();
 }
 
 function guestModal(id){
@@ -2031,11 +2052,12 @@ function saveVendor(id){
   const name=$('#v-name').value.trim();
   if(!name){ $('#v-name').focus(); toast('Nama vendor wajib diisi'); return; }
   const cats=[...document.querySelectorAll('#v-cats .vcat.on')].map(b=>b.dataset.cat);
+  const pros=$('#v-pros').value.trim(), cons=$('#v-cons').value.trim();
   const data={
     name, cats, category:cats.join(', '), contact:$('#v-contact').value.trim(), phone:$('#v-phone').value.trim(),
     price:parseInt($('#v-price').value.replace(/\D/g,'')||'0',10),
     paid:parseInt($('#v-paid').value.replace(/\D/g,'')||'0',10),
-    status:$('#v-status').value, rating:parseInt($('#v-rating').value||'0',10), pros:$('#v-pros').value.trim(), cons:$('#v-cons').value.trim(), notes:$('#v-notes').value.trim()
+    status:$('#v-status').value, pros, cons, rating:autoRating(pros,cons), notes:$('#v-notes').value.trim()
   };
   let celebrate=false;
   if(id){ const v=state.vendors.find(v=>v.id===id); const wasDone=v.status==='lunas'||v.status==='selesai'; Object.assign(v,data); celebrate=!wasDone&&(data.status==='lunas'||data.status==='selesai'); }

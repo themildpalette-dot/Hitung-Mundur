@@ -212,12 +212,31 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
 .vfilter{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 4px}
 .vfilter button{padding:8px 15px;border-radius:999px;font-weight:700;font-size:13px;background:#fff;border:1px solid var(--line);color:var(--ink-soft);box-shadow:var(--sh-1);transition:.15s}
 .vfilter button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.vfilter-cat{margin-top:8px}
+.vfilter-lbl{align-self:center;font-size:11px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;margin-right:2px}
+.vfilter-cat button.on{background:linear-gradient(135deg,var(--rose),var(--coral));border-color:transparent}
 .vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
 .vendor{display:flex;flex-direction:column;gap:12px;padding:18px;border:1px solid var(--line);border-radius:var(--r-md);background:#fff;box-shadow:var(--sh-1);transition:.2s}
 .vendor:hover{transform:translateY(-3px);box-shadow:var(--sh-2)}
 .vendor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .vendor-head h3{font-size:17px;font-weight:800;line-height:1.2}
 .vtag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-top:5px}
+.vtags{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.vtags .vtag{margin-top:0}
+.vcat-pick{display:flex;flex-wrap:wrap;gap:8px}
+.vcat{padding:8px 13px;border-radius:999px;border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);font-size:13px;font-weight:600;cursor:pointer;transition:.15s;-webkit-tap-highlight-color:transparent}
+.vcat:hover{border-color:var(--rose)}
+.vcat.on{background:linear-gradient(135deg,var(--rose),var(--coral));border-color:transparent;color:#fff;box-shadow:0 4px 12px -4px rgba(255,77,141,.5)}
+.ses-list{display:flex;flex-direction:column;gap:8px}
+.ses-row{display:flex;align-items:center;gap:12px;padding:13px 15px;background:#fff;border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-1);cursor:pointer;transition:.15s;-webkit-tap-highlight-color:transparent}
+.ses-row:hover{border-color:var(--rose)}
+.ses-check{width:24px;height:24px;flex:0 0 auto;border-radius:7px;border:2px solid var(--line);display:grid;place-items:center;font-size:14px;font-weight:800;color:#fff;transition:.15s}
+.ses-row.done .ses-check{background:var(--mint,#34d399);border-color:transparent}
+.ses-name{flex:1;font-weight:600;font-size:15px}
+.ses-row.done .ses-name{text-decoration:line-through;color:var(--ink-soft)}
+.ses-chips{display:flex;flex-wrap:wrap;gap:8px}
+.ses-chip{padding:7px 12px;border-radius:999px;border:1.5px dashed var(--line);background:#fff;color:var(--ink-soft);font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s}
+.ses-chip:hover{border-color:var(--rose);color:var(--rose);border-style:solid}
 .badge{padding:5px 11px;border-radius:999px;font-size:11.5px;font-weight:800;white-space:nowrap}
 .b-dihubungi{background:#FFF4E5;color:#c2691b}
 .b-booking{background:#EEF0FF;color:#5b4bd6}
@@ -808,6 +827,12 @@ body.admin-mode #appFoot{display:none!important}
 
 const KEY = 'wedding:data';
 const APP_NAME = 'NaikPelaminan';
+const VCATS = ['Gedung','Katering','Dekorasi','Foto & Video','MUA','Busana','WO','Hiburan','Undangan','Souvenir','Cincin','Transportasi'];
+const GUEST_GROUPS = ['Keluarga','Teman','Tetangga','Rekan Kerja','Sahabat','Kerabat'];
+const GUEST_SIDE = {wanita:'Mempelai Wanita',pria:'Mempelai Pria'};
+const INVITE_TYPE = {fisik:'Undangan Fisik',digital:'Undangan Digital'};
+function guestSide(g){ if(g.side) return g.side; const t=g.group||''; if(/wanita/i.test(t)) return 'wanita'; if(/pria/i.test(t)) return 'pria'; return ''; }
+function vendorCats(v){ if(v && Array.isArray(v.cats) && v.cats.length) return v.cats.slice(); if(v && v.category) return String(v.category).split(',').map(s=>s.trim()).filter(Boolean); return []; }
 // ====== MUSIK LATAR (1 lagu) ======
 // Unggah file lagu ke repo (mis. taruh "lagu.mp3" di folder yang sama dengan index.html),
 // lalu tulis nama berkas / URL-nya di bawah ini. Kosongkan ('') untuk menyembunyikan musik.
@@ -862,7 +887,7 @@ function defaultData(){
   return {
     settings:{ partner1:'Mempelai', partner2:'Pasangan', date:defaultDate(), totalBudget:0, photo:'', photoPath:'' },
     budget:cats, vendors:[], checklist,
-    guests:[], moodboard:[], activeTab:'dashboard',
+    guests:[], seserahan:[], moodboard:[], activeTab:'dashboard',
     invite:{ on:false, slug:'', theme:'minimalis', greeting:'', quote:'', akad:{date:'',time:'',place:'',map:''}, resepsi:{date:'',time:'',place:'',map:''}, gift:{bank:'',rek:'',name:'',ewallet:'',note:''} }
   };
 }
@@ -968,8 +993,13 @@ function budgetTotals(){
 }
 function guestTotals(){
   let total=0,hadir=0,undangan=state.guests.length;
-  state.guests.forEach(g=>{ total+=(+g.count||0); if(g.rsvp==='hadir') hadir+=(+g.count||0); });
-  return {total,hadir,undangan};
+  let sideW=0,sideP=0,invFisik=0,invDigital=0;
+  state.guests.forEach(g=>{
+    const c=(+g.count||0); total+=c; if(g.rsvp==='hadir') hadir+=c;
+    const sd=guestSide(g); if(sd==='wanita') sideW+=c; else if(sd==='pria') sideP+=c;
+    if(g.invite==='fisik') invFisik++; else if(g.invite==='digital') invDigital++;
+  });
+  return {total,hadir,undangan,sideW,sideP,invFisik,invDigital};
 }
 function vendorTotals(){
   let nilai=0,paid=0;
@@ -1043,7 +1073,7 @@ function renderCountdown(){
 }
 
 /* ============================================================ RENDER: TABS ============================================================ */
-const TABS=[['dashboard','📊','Ringkasan'],['budget','💰','Anggaran'],['vendor','🤝','Vendor'],['checklist','✅','Checklist'],['guests','💌','Tamu'],['moodboard','🎨','Inspirasi']];
+const TABS=[['dashboard','📊','Ringkasan'],['budget','💰','Anggaran'],['vendor','🤝','Vendor'],['checklist','✅','Checklist'],['guests','💌','Tamu'],['seserahan','🎁','Seserahan'],['moodboard','🎨','Inspirasi']];
 function renderTabs(){
   $('#tabs').innerHTML=TABS.map(([id,emo,lbl])=>
     `<button class="tab ${state.activeTab===id?'active':''}" data-act="tab" data-tab="${id}"><span class="emo">${emo}</span>${lbl}</button>`
@@ -1055,7 +1085,7 @@ function switchTab(t){ state.activeTab=t; save(); renderTabs(); renderView(); wi
 function renderView(){
   const v=$('#view');
   if(state.activeTab==='invite') state.activeTab='dashboard';
-  (({dashboard:renderDashboard,budget:renderBudget,vendor:renderVendors,checklist:renderChecklist,guests:renderGuests,moodboard:renderMoodboard}[state.activeTab])||renderDashboard)(v);
+  (({dashboard:renderDashboard,budget:renderBudget,vendor:renderVendors,checklist:renderChecklist,guests:renderGuests,seserahan:renderSeserahan,moodboard:renderMoodboard}[state.activeTab])||renderDashboard)(v);
 }
 
 /* ---------- donut svg ---------- */
@@ -1276,16 +1306,29 @@ function updateBudgetSummary(){
 
 /* ============================================================ VENDOR ============================================================ */
 let vendorFilter='semua';
+let vendorCatFilter='semua';
 const V_STATUS={dihubungi:'Dihubungi',booking:'Booking / DP',lunas:'Lunas',selesai:'Selesai'};
 function renderVendors(v){
   const vt=vendorTotals();
-  const list = vendorFilter==='semua'? state.vendors : state.vendors.filter(x=>x.status===vendorFilter);
+  const presentCats=[...new Set(state.vendors.flatMap(vendorCats))];
+  const orderedCats=VCATS.filter(c=>presentCats.includes(c)).concat(presentCats.filter(c=>!VCATS.includes(c)));
+  if(vendorCatFilter!=='semua' && !orderedCats.includes(vendorCatFilter)) vendorCatFilter='semua';
+  const list = state.vendors.filter(x=>
+    (vendorFilter==='semua' || x.status===vendorFilter) &&
+    (vendorCatFilter==='semua' || vendorCats(x).includes(vendorCatFilter))
+  );
 
   const filters=['semua',...Object.keys(V_STATUS)].map(f=>{
     const lbl=f==='semua'?'Semua':V_STATUS[f];
     const n=f==='semua'?state.vendors.length:state.vendors.filter(x=>x.status===f).length;
     return `<button class="${vendorFilter===f?'on':''}" data-act="vfilter" data-f="${f}">${lbl} (${n})</button>`;
   }).join('');
+
+  const catFilters = orderedCats.length ? ['semua',...orderedCats].map(c=>{
+    const lbl=c==='semua'?'Semua':c;
+    const n=c==='semua'?state.vendors.length:state.vendors.filter(x=>vendorCats(x).includes(c)).length;
+    return `<button class="${vendorCatFilter===c?'on':''}" data-act="vcatfilter" data-c="${esc(c)}">${esc(lbl)} (${n})</button>`;
+  }).join('') : '';
 
   let body;
   if(state.vendors.length===0){
@@ -1310,14 +1353,16 @@ function renderVendors(v){
   <div class="section-head" style="margin-top:20px"><div><h2>Daftar Vendor</h2><p>Kelola kontak & status pembayaran tiap vendor</p></div>
     <button class="btn btn-pri" data-act="add-vendor">+ Vendor</button></div>
   <div class="vfilter">${filters}</div>
+  ${catFilters?`<div class="vfilter vfilter-cat"><span class="vfilter-lbl">Kategori</span>${catFilters}</div>`:''}
   ${body}`;
 }
 function vendorCard(x){
-  const tagColor=PALETTE[(x.category||'').length%PALETTE.length];
+  const cats=vendorCats(x);
   const waLink = x.phone? `https://wa.me/${x.phone.replace(/\D/g,'').replace(/^0/,'62')}` : '';
+  const tags = cats.map(c=>{ const col=PALETTE[c.length%PALETTE.length]; return `<span class="vtag" style="background:${hexA(col,.14)};color:${col}">${esc(c)}</span>`; }).join('');
   return `<div class="vendor">
     <div class="vendor-head">
-      <div><h3>${esc(x.name)}</h3>${x.category?`<span class="vtag" style="background:${hexA(tagColor,.14)};color:${tagColor}">${esc(x.category)}</span>`:''}</div>
+      <div><h3>${esc(x.name)}</h3>${tags?`<div class="vtags">${tags}</div>`:''}</div>
       <span class="badge b-${x.status}">${V_STATUS[x.status]}</span>
     </div>
     <div class="vendor-money">
@@ -1393,15 +1438,17 @@ function renderGuests(v){
       <p>Tambahkan per kelompok (keluarga, teman, rekan kerja) lengkap dengan jumlah & status kehadiran.</p>
       <button class="btn btn-pri" data-act="add-guest">+ Tambah Kelompok Tamu</button></div>`;
   }else{
-    body=state.guests.map(x=>`<div class="guest-row">
-      <div class="gname">${esc(x.name)}${x.group?`<small>${esc(x.group)}</small>`:''}</div>
+    body=state.guests.map(x=>{
+      const meta=[x.group, GUEST_SIDE[guestSide(x)], INVITE_TYPE[x.invite]].filter(Boolean).join(' · ');
+      return `<div class="guest-row">
+      <div class="gname">${esc(x.name)}${meta?`<small>${esc(meta)}</small>`:''}</div>
       <div class="gcount">${grp(x.count)}<small> org</small></div>
       <span class="rsvp ${RSVP_CLS[x.rsvp]}">${RSVP[x.rsvp]}</span>
       <div class="guest-edit">
         <button class="gbtn" data-act="edit-guest" data-id="${x.id}">✏️</button>
         <button class="gbtn del" data-act="del-guest" data-id="${x.id}">🗑</button>
       </div>
-    </div>`).join('');
+    </div>`;}).join('');
   }
 
   v.innerHTML=`
@@ -1413,12 +1460,54 @@ function renderGuests(v){
       ${miniStat('Belum / Tidak',grp(pending+tidak)+' org','coral')}
     </div>
   </div>
+  <div class="card pad-lg" style="margin-top:12px">
+    <div class="grid" style="grid-template-columns:repeat(4,1fr);gap:12px">
+      ${miniStat('Pihak Wanita',grp(g.sideW)+' org','grape')}
+      ${miniStat('Pihak Pria',grp(g.sideP)+' org','rose')}
+      ${miniStat('Undangan Fisik',g.invFisik,'coral')}
+      ${miniStat('Undangan Digital',g.invDigital,'mint')}
+    </div>
+  </div>
   <div class="section-head" style="margin-top:20px"><div><h2>Kelompok Tamu</h2><p>Pantau jumlah & konfirmasi kehadiran</p></div>
     ${state.guests.length?`<button class="btn btn-pri" data-act="add-guest">+ Tamu</button>`:''}</div>
   ${body}`;
 }
 
-/* ============================================================ MODALS ============================================================ */
+const SESERAHAN_PRESET=['Seperangkat alat sholat','Perhiasan','Pakaian','Kosmetik / Make up','Tas','Sepatu','Parfum','Skincare','Buah-buahan','Kue / Makanan','Mukena','Handuk','Aksesoris'];
+function renderSeserahan(v){
+  const items=state.seserahan||[];
+  const done=items.filter(i=>i.done).length;
+  const existing=new Set(items.map(i=>(i.name||'').toLowerCase()));
+  const presetChips=SESERAHAN_PRESET.filter(p=>!existing.has(p.toLowerCase())).map(p=>`<button class="ses-chip" data-act="quick-seserahan" data-name="${esc(p)}">+ ${esc(p)}</button>`).join('');
+  const list = items.length ? items.map(i=>`<div class="ses-row${i.done?' done':''}" data-act="toggle-seserahan" data-id="${i.id}">
+      <span class="ses-check">${i.done?'✓':''}</span>
+      <span class="ses-name">${esc(i.name)}</span>
+      <button class="gbtn del" data-act="del-seserahan" data-id="${i.id}">🗑</button>
+    </div>`).join('')
+    : `<div class="card empty"><div class="em">🎁</div><h3>Belum ada daftar seserahan</h3><p>Tambahkan barang seserahan / hantaran yang perlu disiapkan, lalu ketuk untuk menandai sudah siap.</p></div>`;
+  v.innerHTML=`
+  <div class="card pad-lg">
+    <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:12px">
+      ${miniStat('Total Item',items.length,'grape')}
+      ${miniStat('Sudah Siap',done,'mint')}
+      ${miniStat('Belum Siap',items.length-done,'coral')}
+    </div>
+  </div>
+  <div class="card pad-lg" style="margin-top:12px">
+    <label style="font-weight:800;font-size:13px;color:var(--ink-soft)">Tambah Item Seserahan</label>
+    <div class="ses-add" style="display:flex;gap:8px;margin-top:8px">
+      <input id="ses-input" placeholder="Mis. Seperangkat alat sholat" onkeydown="if(event.key==='Enter'){event.preventDefault();document.querySelector('[data-act=add-seserahan]').click();}" style="flex:1">
+      <button class="btn btn-pri" data-act="add-seserahan">+ Tambah</button>
+    </div>
+    ${presetChips?`<div style="margin-top:12px"><div style="font-size:12px;color:var(--ink-soft);margin-bottom:7px">Cepat tambah:</div><div class="ses-chips">${presetChips}</div></div>`:''}
+  </div>
+  <div class="section-head" style="margin-top:20px"><div><h2>Daftar Seserahan</h2><p>Ketuk item untuk menandai sudah siap</p></div></div>
+  <div class="ses-list">${list}</div>`;
+}
+function addSeserahan(){ const inp=$('#ses-input'); const t=(inp.value||'').trim(); if(!t) return; (state.seserahan=state.seserahan||[]).push({id:uid(),name:t,done:false}); save(); renderSeserahan($('#view')); }
+function quickSeserahan(name){ if(!name) return; (state.seserahan=state.seserahan||[]).push({id:uid(),name,done:false}); save(); renderSeserahan($('#view')); }
+function toggleSeserahan(id){ const i=(state.seserahan||[]).find(s=>s.id===id); if(i){ i.done=!i.done; save(); renderSeserahan($('#view')); } }
+function delSeserahan(id){ state.seserahan=(state.seserahan||[]).filter(s=>s.id!==id); save(); renderSeserahan($('#view')); }
 function openModal(html){
   $('#modal').innerHTML=html;
   $('#overlay').classList.add('is-open');
@@ -1725,17 +1814,16 @@ async function generatePdf(){
 }
 
 function vendorModal(id){
-  const x = id? state.vendors.find(v=>v.id===id) : {name:'',category:'',contact:'',phone:'',price:0,paid:0,status:'dihubungi',notes:''};
+  const x = id? state.vendors.find(v=>v.id===id) : {name:'',category:'',cats:[],contact:'',phone:'',price:0,paid:0,status:'dihubungi',notes:''};
+  const sel = vendorCats(x);
   openModal(`
     <div class="modal-head"><h3>${id?'Edit Vendor':'Vendor Baru'}</h3><button class="modal-x" data-act="close">✕</button></div>
     <div class="modal-body">
       <div class="mfield"><label>Nama Vendor *</label><input id="v-name" value="${esc(x.name)}" placeholder="Mawar Catering"></div>
-      <div class="mfield"><label>Kategori</label>
-        <select id="v-cat">
-          <option value=""${!x.category?' selected':''}>— Pilih kategori —</option>
-          ${['Gedung','Katering','Dekorasi','Foto & Video','MUA','Busana','WO','Hiburan','Undangan','Souvenir','Cincin','Transportasi'].map(c=>`<option value="${esc(c)}"${x.category===c?' selected':''}>${esc(c)}</option>`).join('')}
-          ${x.category && !['Gedung','Katering','Dekorasi','Foto & Video','MUA','Busana','WO','Hiburan','Undangan','Souvenir','Cincin','Transportasi'].includes(x.category)?`<option value="${esc(x.category)}" selected>${esc(x.category)}</option>`:''}
-        </select></div>
+      <div class="mfield"><label>Kategori <span style="font-weight:400;color:var(--ink-soft);font-size:12px">(boleh pilih lebih dari satu)</span></label>
+        <div id="v-cats" class="vcat-pick">
+          ${[...new Set([...VCATS, ...sel])].map(c=>`<button type="button" class="vcat${sel.includes(c)?' on':''}" data-act="toggle-vcat" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}
+        </div></div>
       <div class="mrow">
         <div class="mfield"><label>Narahubung</label><input id="v-contact" value="${esc(x.contact)}" placeholder="Bu Sari"></div>
         <div class="mfield"><label>No. HP / WA</label><input id="v-phone" value="${esc(x.phone)}" placeholder="0812…"></div>
@@ -1756,14 +1844,30 @@ function vendorModal(id){
 }
 
 function guestModal(id){
-  const x=id? state.guests.find(g=>g.id===id) : {name:'',group:'',count:1,rsvp:'diundang'};
+  const x=id? state.guests.find(g=>g.id===id) : {name:'',group:'',side:'',invite:'',count:1,rsvp:'diundang'};
   openModal(`
     <div class="modal-head"><h3>${id?'Edit Tamu':'Kelompok Tamu Baru'}</h3><button class="modal-x" data-act="close">✕</button></div>
     <div class="modal-body">
       <div class="mfield"><label>Nama / Keterangan *</label><input id="g-name" value="${esc(x.name)}" placeholder="Keluarga Pak Budi"></div>
       <div class="mrow">
-        <div class="mfield"><label>Kategori</label><input id="g-group" value="${esc(x.group)}" placeholder="Keluarga / Teman / Kerja" list="grouplist">
-          <datalist id="grouplist"><option value="Keluarga Mempelai Pria"><option value="Keluarga Mempelai Wanita"><option value="Teman"><option value="Rekan Kerja"><option value="Tetangga"></datalist></div>
+        <div class="mfield"><label>Kategori</label>
+          <select id="g-group" onchange="(function(s){var c=document.getElementById('g-group-custom');c.style.display=s.value==='__custom__'?'block':'none';if(s.value==='__custom__'){c.value='';c.focus();}})(this)">
+            <option value=""${!x.group?' selected':''}>— Pilih kategori —</option>
+            ${GUEST_GROUPS.map(g=>`<option value="${esc(g)}"${x.group===g?' selected':''}>${esc(g)}</option>`).join('')}
+            ${x.group && !GUEST_GROUPS.includes(x.group)?`<option value="${esc(x.group)}" selected>${esc(x.group)}</option>`:''}
+            <option value="__custom__">➕ Lainnya (tulis sendiri)…</option>
+          </select>
+          <input id="g-group-custom" value="" placeholder="Tulis kategori sendiri…" style="display:none;margin-top:8px"></div>
+        <div class="mfield"><label>Pihak Mempelai</label><select id="g-side">
+          <option value=""${!x.side?' selected':''}>— Pilih —</option>
+          ${Object.entries(GUEST_SIDE).map(([k,l])=>`<option value="${k}"${x.side===k?' selected':''}>${l}</option>`).join('')}
+        </select></div>
+      </div>
+      <div class="mrow">
+        <div class="mfield"><label>Jenis Undangan</label><select id="g-invite">
+          <option value=""${!x.invite?' selected':''}>— Pilih —</option>
+          ${Object.entries(INVITE_TYPE).map(([k,l])=>`<option value="${k}"${x.invite===k?' selected':''}>${l}</option>`).join('')}
+        </select></div>
         <div class="mfield"><label>Jumlah Orang</label><input type="number" id="g-count" min="1" value="${x.count}"></div>
       </div>
       <div class="mfield"><label>Status Kehadiran</label><select id="g-rsvp">
@@ -1790,8 +1894,9 @@ function saveSettings(){
 function saveVendor(id){
   const name=$('#v-name').value.trim();
   if(!name){ $('#v-name').focus(); toast('Nama vendor wajib diisi'); return; }
+  const cats=[...document.querySelectorAll('#v-cats .vcat.on')].map(b=>b.dataset.cat);
   const data={
-    name, category:$('#v-cat').value.trim(), contact:$('#v-contact').value.trim(), phone:$('#v-phone').value.trim(),
+    name, cats, category:cats.join(', '), contact:$('#v-contact').value.trim(), phone:$('#v-phone').value.trim(),
     price:parseInt($('#v-price').value.replace(/\D/g,'')||'0',10),
     paid:parseInt($('#v-paid').value.replace(/\D/g,'')||'0',10),
     status:$('#v-status').value, notes:$('#v-notes').value.trim()
@@ -1803,10 +1908,11 @@ function saveVendor(id){
   toast(id?'Vendor diperbarui 🤝':'Vendor ditambahkan 🤝');
   if(celebrate) setTimeout(()=>burst(innerWidth/2,innerHeight/2),200);
 }
-function saveGuest(id){
-  const name=$('#g-name').value.trim();
+function saveGuest(id){  const name=$('#g-name').value.trim();
   if(!name){ $('#g-name').focus(); toast('Nama tamu wajib diisi'); return; }
-  const data={name,group:$('#g-group').value.trim(),count:Math.max(1,parseInt($('#g-count').value||'1',10)),rsvp:$('#g-rsvp').value};
+  let group=$('#g-group').value;
+  if(group==='__custom__') group=($('#g-group-custom').value||'').trim();
+  const data={name,group:group.trim(),side:$('#g-side').value,invite:$('#g-invite').value,count:Math.max(1,parseInt($('#g-count').value||'1',10)),rsvp:$('#g-rsvp').value};
   if(id){ Object.assign(state.guests.find(g=>g.id===id),data); }
   else { data.id=uid(); state.guests.push(data); }
   save(); closeModal(); renderGuests($('#view'));
@@ -1847,6 +1953,7 @@ document.addEventListener('click',e=>{
     case 'auth-submit': authSubmit(); break;
     case 'send-reset': sendResetEmail(); break;
     case 'toggle-pass': { const pf=document.getElementById(t.dataset.target); if(pf){ const show=pf.type==='password'; pf.type=show?'text':'password'; t.classList.toggle('on',show); t.textContent=show?'🙈':'👁️'; pf.focus(); } break; }
+    case 'toggle-vcat': t.classList.toggle('on'); break;
     case 'submit-new-password': submitNewPassword(); break;
     case 'recheck-status': recheckStatus(); break;
     case 'admin-panel': adminPanel(); break;
@@ -1886,8 +1993,7 @@ document.addEventListener('click',e=>{
     case 'submit-change-pass': submitChangePass(); break;
     case 'forgot-next': forgotNext(); break;
     case 'forgot-reset': forgotReset(t.dataset.login); break;
-    case 'sec-q': secQModal(); break;
-    case 'submit-sec-q': submitSecQ(); break;
+    case 'sec-q': secQModal(); break;    case 'submit-sec-q': submitSecQ(); break;
     case 'dismiss-banner': $('#localBanner').innerHTML=''; break;
     case 'close': closeModal(); break;
     case 'save-settings': saveSettings(); break;
@@ -1915,6 +2021,7 @@ document.addEventListener('click',e=>{
       if(confirm('Hapus vendor ini?')){ state.vendors=state.vendors.filter(v=>v.id!==id); save(); closeModal(); renderVendors($('#view')); toast('Vendor dihapus'); }
       break;
     case 'vfilter': vendorFilter=t.dataset.f; renderVendors($('#view')); break;
+    case 'vcatfilter': vendorCatFilter=t.dataset.c; renderVendors($('#view')); break;
     case 'toggle-task': {
       const task=state.checklist.find(x=>x.id===id); task.done=!task.done; save(); renderChecklist($('#view'));
       if(task.done){
@@ -1930,6 +2037,10 @@ document.addEventListener('click',e=>{
     case 'add-guest': guestModal(null); break;
     case 'edit-guest': guestModal(id); break;
     case 'save-guest': saveGuest(id); break;
+    case 'add-seserahan': addSeserahan(); break;
+    case 'quick-seserahan': quickSeserahan(t.dataset.name); break;
+    case 'toggle-seserahan': toggleSeserahan(id); break;
+    case 'del-seserahan': delSeserahan(id); break;
     case 'del-guest':
       if(confirm('Hapus kelompok tamu ini?')){ state.guests=state.guests.filter(g=>g.id!==id); save(); closeModal(); renderGuests($('#view')); toast('Tamu dihapus'); }
       break;

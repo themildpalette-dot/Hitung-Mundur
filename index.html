@@ -992,6 +992,17 @@ function renderAccessBanner(){
   el.innerHTML=h;
 }
 setInterval(()=>{ if(typeof currentUser!=='undefined' && currentUser && !isAdmin && accessPhase==='trial') computeAccess(); }, 60000);
+async function refreshAccess(){
+  try{
+    if(typeof currentUser==='undefined' || !currentUser || typeof sb==='undefined' || !sb || isAdmin) return;
+    const {data}=await sb.from('profiles').select('status,access,trial_ends,hold_ends').eq('id',currentUser.id).maybeSingle();
+    if(!data) return;
+    if(data.status==='rejected'){ toast('Akses akunmu dihentikan admin'); setTimeout(logout,1600); return; }
+    userAccess=data.access||'trial'; trialEnds=data.trial_ends||null; holdEnds=data.hold_ends||null;
+    computeAccess();   // begitu admin hold/lunas/perpanjang, layar user ikut berubah tanpa refresh
+  }catch(e){}
+}
+setInterval(refreshAccess, 120000);   // cek status akun ke server tiap 2 menit
 let adminUsers=[], announceDismissed=false;
 
 /* ---------- indikator sinkronisasi ---------- */

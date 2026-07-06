@@ -775,6 +775,21 @@ body.admin-mode #appFoot{display:none!important}
 #pdfStage .cmpx-stars{color:#f5b301;letter-spacing:1px}
 #pdfStage .cmpx-tag{display:inline-block;background:#dcfce7;color:#0f9d7a;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:999px;vertical-align:middle}
 .cmp-dim{color:#c9b3bb}
+.acc-bar{padding:11px 16px;font-size:13px;font-weight:600;line-height:1.5;text-align:center}
+.acc-trial{background:linear-gradient(90deg,#FFF3E0,#FFE9C7);color:#8a5a12;border-bottom:1px solid #F0DCA8}
+.acc-lock{background:linear-gradient(90deg,#FFF1F3,#FFE0E6);color:#9f1239;border-bottom:1px solid #F6C9D2}
+body.readonly [data-act^="add-"],
+body.readonly [data-act^="edit-"],
+body.readonly [data-act^="del-"],
+body.readonly [data-act="gen-code"],
+body.readonly [data-act="join-wedding"],
+body.readonly [data-act="revoke-member"],
+body.readonly [data-act="leave-wedding"],
+body.readonly [data-act="cmp-choose"],
+body.readonly [data-act="set-theme"]{display:none!important}
+body.readonly #view input[type=text],
+body.readonly #view input[type=number],
+body.readonly #view textarea{pointer-events:none;opacity:.55;background:#f4f4f4}
 .fhint{font-weight:400;color:var(--ink-soft);font-size:11.5px}
 .rating-auto{font-size:18px;letter-spacing:2px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:4px 0}
 .rating-auto .ra-stars{color:#f5b301}
@@ -832,6 +847,7 @@ body.admin-mode #appFoot{display:none!important}
 </header>
 
 <div id="localBanner"></div>
+<div id="accessBanner"></div>
 <div id="announceBar"></div>
 
 <section class="hero" id="hero"></section>
@@ -943,6 +959,39 @@ const CLOUD_ENABLED = SUPABASE_URL.startsWith('https://')
 let sb=null, currentUser=null, lastWriteISO=null, rtChannel=null, welcomed=false;
 let activeWeddingId=null, isWeddingOwner=true, myShareCode=null, partnerOwnerEmail='';
 let userStatus='approved', isAdmin=false;
+let userAccess='paid', trialEnds=null, holdEnds=null, READONLY=false, accessPhase='ok';
+const MUT_ACTIONS=new Set(['add-budget','add-guest','add-mood','add-seserahan','add-task','add-vendor','del-budget','del-guest','del-mood','del-seserahan','del-task','del-vendor','del-wish','edit-guest','edit-vendor','save-guest','save-vendor','save-settings','save-invite','toggle-seserahan','toggle-task','quick-seserahan','cmp-choose','gen-code','join-wedding','leave-wedding','revoke-member','set-theme','set-inv-theme','toggle-personalize']);
+function daysLeft(ts){ if(!ts) return 0; return Math.max(0, Math.ceil((new Date(ts).getTime()-Date.now())/86400000)); }
+function computeAccess(){
+  READONLY=false; accessPhase='ok';
+  if(!isAdmin){
+    const now=Date.now();
+    const te=trialEnds?new Date(trialEnds).getTime():0;
+    if(userAccess==='paid'){ accessPhase='paid'; }
+    else if(userAccess==='hold'){ READONLY=true; accessPhase='hold'; }
+    else { // trial / default
+      if(te && now>=te){ READONLY=true; accessPhase='trial_expired'; }
+      else if(te){ accessPhase='trial'; }
+      else { accessPhase='ok'; }   // trial tanpa tanggal → jangan kunci (akun lama)
+    }
+  }
+  document.body.classList.toggle('readonly', READONLY);
+  renderAccessBanner();
+}
+function renderAccessBanner(){
+  const el=document.getElementById('accessBanner'); if(!el) return;
+  let h='';
+  if(!isAdmin){
+    if(accessPhase==='trial'){ const d=daysLeft(trialEnds);
+      h=`<div class="acc-bar acc-trial">⏳ Masa coba aktif — <b>${d} hari lagi</b>. Suka? Lakukan pembayaran biar akun tetap aktif.</div>`; }
+    else if(accessPhase==='trial_expired'){
+      h=`<div class="acc-bar acc-lock">🔒 Masa coba berakhir — akun kini <b>baca-saja</b>. Datamu aman. Lakukan pembayaran untuk aktif kembali (hubungi admin).</div>`; }
+    else if(accessPhase==='hold'){
+      h=`<div class="acc-bar acc-lock">🔒 Akun sedang <b>di-hold</b> (mode baca-saja). Datamu tersimpan aman. Hubungi admin untuk mengaktifkan kembali.</div>`; }
+  }
+  el.innerHTML=h;
+}
+setInterval(()=>{ if(typeof currentUser!=='undefined' && currentUser && !isAdmin && accessPhase==='trial') computeAccess(); }, 60000);
 let adminUsers=[], announceDismissed=false;
 
 /* ---------- indikator sinkronisasi ---------- */
@@ -960,6 +1009,7 @@ async function localSet(v){ try{ if(!window.storage) return; await window.storag
 /* ---------- save (otomatis dialihkan ke cloud / lokal) ---------- */
 let saveTimer=null;
 function save(){
+  if(READONLY){ toast('Akun kamu mode baca-saja 🔒'); return; }
   clearTimeout(saveTimer);
   if(CLOUD_ENABLED && currentUser){
     setSync('saving');
@@ -977,6 +1027,7 @@ async function resolveActiveWedding(){
   activeWeddingId=currentUser.id; isWeddingOwner=true; partnerOwnerEmail='';
 }
 async function cloudSave(){
+  if(READONLY) return;
   const iso=new Date().toISOString();
   const {error}=await sb.from('weddings').update({data:state,updated_at:iso}).eq('user_id',activeWeddingId);
   if(error){ setSync('error'); console.error('Gagal menyimpan:',error); }
@@ -2103,6 +2154,7 @@ function resetData(){
 document.addEventListener('click',e=>{
   const t=e.target.closest('[data-act]'); if(!t) return;
   const a=t.dataset.act, id=t.dataset.id;
+  if(READONLY && MUT_ACTIONS.has(a)){ toast('Akun kamu mode baca-saja 🔒 — tidak bisa menambah atau mengubah data'); return; }
   switch(a){
     case 'tab': switchTab(t.dataset.tab); break;
     case 'open-settings': settingsModal(); break;
@@ -2116,6 +2168,10 @@ document.addEventListener('click',e=>{
     case 'recheck-status': recheckStatus(); break;
     case 'admin-panel': adminPanel(); break;
     case 'approve-user': approveUser(id); break;
+    case 'mark-paid': markPaid(id); break;
+    case 'hold-user': holdUser(id); break;
+    case 'extend-trial': extendTrial(id); break;
+    case 'del-user': deleteUserFull(id); break;
     case 'reject-user': rejectUser(id); break;
     case 'export-all': exportAllAccounts(); break;
     case 'view-account': viewAccount(id); break;
@@ -3246,6 +3302,13 @@ async function fetchProfile(){
     // Jika tabel profiles belum ada (SQL belum dijalankan), jangan kunci siapa pun.
     userStatus='approved'; isAdmin=false;
   }
+  // Status akses (trial/paid/hold) — opsional; kalau kolom belum ada, anggap full akses.
+  userAccess='paid'; trialEnds=null; holdEnds=null;
+  try{
+    const {data}=await sb.from('profiles').select('access,trial_ends,hold_ends').eq('id',currentUser.id).maybeSingle();
+    if(data){ userAccess=data.access||'trial'; trialEnds=data.trial_ends||null; holdEnds=data.hold_ends||null; }
+  }catch(e){ userAccess='paid'; }
+  computeAccess();
 }
 function showPendingScreen(){
   $('#auth').classList.add('show');
@@ -3395,7 +3458,7 @@ async function loadAdminUsers(){
   const box=$('#adminList');
   try{
     const [{data:profs,error:pe},{data:weds}]=await Promise.all([
-      sb.from('profiles').select('id,email,status,is_admin,created_at').order('created_at',{ascending:false}),
+      sb.from('profiles').select('id,email,status,is_admin,created_at,access,trial_ends,hold_ends').order('created_at',{ascending:false}),
       sb.from('weddings').select('user_id,updated_at')
     ]);
     if(pe) throw pe;
@@ -3477,20 +3540,35 @@ async function loadAnnouncement(){
       : '';
   }catch(e){ bar.innerHTML=''; }
 }
+function accBadge(u){
+  if(u.status!=='approved') return '';
+  const now=Date.now(), te=u.trial_ends?new Date(u.trial_ends).getTime():0;
+  if(u.access==='paid') return '<span class="st-badge" style="background:#E6Faf5;color:#0f9d7a">💳 Lunas</span>';
+  if(u.access==='hold'){ const d=u.hold_ends?daysLeft(u.hold_ends):0; return `<span class="st-badge" style="background:#FFF1F3;color:#be123c">🔒 Hold${d?' '+d+'h':''}</span>`; }
+  if(!te) return '<span class="st-badge" style="background:#EEF0FF;color:#4338ca">Trial</span>';
+  if(now<te) return `<span class="st-badge" style="background:#FFF4E5;color:#c2691b">⏳ Trial ${Math.max(0,Math.ceil((te-now)/86400000))}h</span>`;
+  return '<span class="st-badge" style="background:#FFF1F3;color:#be123c">⌛ Trial habis</span>';
+}
 function adminRow(u){
   const m={pending:['#FFF4E5','#c2691b','Menunggu'],approved:['#E6Faf5','#0f9d7a','Disetujui'],rejected:['#FFF1F3','#be123c','Ditolak']}[u.status]||['#F1F0F4','#666',u.status];
   const me=u.id===currentUser.id;
+  const ap=u.status==='approved';
   return `<div class="admin-row">
     <div class="admin-info">
       <b>${esc(displayUser(u.email)||u.id.slice(0,8))}${u.is_admin?' 👑':''}${me?' (kamu)':''}</b>
       <span class="st-badge" style="background:${m[0]};color:${m[1]}">${m[2]}</span>
+      ${accBadge(u)}
       <span class="admin-meta">Daftar ${shortDate(u.created_at)} · ${u._active?('aktif '+relTime(u._active)):'belum ada data'}</span>
     </div>
     <div class="admin-acts">
       <button class="btn btn-ghost" data-act="view-account" data-id="${u.id}" style="padding:7px 12px">Lihat</button>
-      ${u.status!=='approved'?`<button class="btn btn-pri" data-act="approve-user" data-id="${u.id}" style="padding:7px 12px">Setujui</button>`:''}
-      ${(u.status!=='rejected' && !me)?`<button class="btn btn-danger" data-act="reject-user" data-id="${u.id}" style="padding:7px 12px">Tolak</button>`:''}
-      ${!me?`<button class="btn btn-ghost" data-act="reset-pass-user" data-id="${u.id}" style="padding:7px 12px;color:var(--grape)">🔑 Reset Sandi</button>`:''}
+      ${u.status!=='approved'?`<button class="btn btn-pri" data-act="approve-user" data-id="${u.id}" style="padding:7px 12px">Setujui (trial 3 hari)</button>`:''}
+      ${u.status==='pending'?`<button class="btn btn-danger" data-act="reject-user" data-id="${u.id}" style="padding:7px 12px">Tolak</button>`:''}
+      ${ap&&u.access!=='paid'?`<button class="btn btn-pri" data-act="mark-paid" data-id="${u.id}" style="padding:7px 12px;background:#0f9d7a">💳 Tandai Lunas</button>`:''}
+      ${ap&&u.access!=='hold'&&!me?`<button class="btn btn-ghost" data-act="hold-user" data-id="${u.id}" style="padding:7px 12px;color:#be7b1b">⏸️ Hold 7 hari</button>`:''}
+      ${ap?`<button class="btn btn-ghost" data-act="extend-trial" data-id="${u.id}" style="padding:7px 12px;color:var(--grape)">➕ Trial 3 hari</button>`:''}
+      ${!me?`<button class="btn btn-ghost" data-act="reset-pass-user" data-id="${u.id}" style="padding:7px 12px;color:var(--grape)">🔑 Reset</button>`:''}
+      ${!me?`<button class="btn btn-danger" data-act="del-user" data-id="${u.id}" style="padding:7px 12px">🗑 Hapus</button>`:''}
     </div>
   </div>`;
 }
@@ -3527,8 +3605,44 @@ async function submitResetPass(id){
   }
 }
 async function approveUser(id){
-  try{ const {error}=await sb.from('profiles').update({status:'approved'}).eq('id',id); if(error) throw error; toast('Pengguna disetujui ✅'); }
-  catch(e){ console.error(e); toast('Gagal menyetujui'); }
+  const te=new Date(Date.now()+3*86400000).toISOString();
+  try{
+    let {error}=await sb.from('profiles').update({status:'approved',access:'trial',trial_ends:te,hold_ends:null}).eq('id',id);
+    if(error){ ({error}=await sb.from('profiles').update({status:'approved'}).eq('id',id)); if(error) throw error; }
+    toast('Disetujui — masa coba 3 hari dimulai ✅');
+  }catch(e){ console.error(e); toast('Gagal menyetujui'); }
+  loadAdminUsers();
+}
+async function markPaid(id){
+  try{ const {error}=await sb.from('profiles').update({access:'paid',hold_ends:null}).eq('id',id); if(error) throw error; toast('Ditandai Lunas — akses penuh 💳'); }
+  catch(e){ console.error(e); toast('Gagal (jalankan SQL trial dulu?)'); }
+  loadAdminUsers();
+}
+async function holdUser(id){
+  if(!confirm('Hold akun ini 7 hari? Pengguna jadi mode baca-saja, tapi datanya tetap aman.')) return;
+  const he=new Date(Date.now()+7*86400000).toISOString();
+  try{ const {error}=await sb.from('profiles').update({access:'hold',hold_ends:he}).eq('id',id); if(error) throw error; toast('Akun di-hold 7 hari ⏸️'); }
+  catch(e){ console.error(e); toast('Gagal (jalankan SQL trial dulu?)'); }
+  loadAdminUsers();
+}
+async function extendTrial(id){
+  const te=new Date(Date.now()+3*86400000).toISOString();
+  try{ const {error}=await sb.from('profiles').update({access:'trial',trial_ends:te,hold_ends:null}).eq('id',id); if(error) throw error; toast('Masa coba diperpanjang 3 hari ➕'); }
+  catch(e){ console.error(e); toast('Gagal (jalankan SQL trial dulu?)'); }
+  loadAdminUsers();
+}
+async function deleteUserFull(id){
+  const u=(adminUsers||[]).find(x=>x.id===id);
+  const who=u?(displayUser(u.email)||id.slice(0,8)):'pengguna ini';
+  if(!confirm('HAPUS akun '+who+'?\n\nSemua data pernikahannya akan dihapus PERMANEN dan tidak bisa dikembalikan. Login-nya juga akan dinonaktifkan.')) return;
+  try{
+    await sb.from('weddings').delete().eq('user_id',id);
+    await sb.from('wedding_members').delete().eq('owner_id',id);
+    await sb.from('wedding_members').delete().eq('member_id',id);
+    const {error}=await sb.from('profiles').update({status:'rejected'}).eq('id',id);
+    if(error) throw error;
+    toast('Akun & datanya dihapus 🗑');
+  }catch(e){ console.error(e); toast('Gagal menghapus'); }
   loadAdminUsers();
 }
 async function rejectUser(id){

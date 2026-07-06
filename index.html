@@ -3636,13 +3636,16 @@ async function deleteUserFull(id){
   const who=u?(displayUser(u.email)||id.slice(0,8)):'pengguna ini';
   if(!confirm('HAPUS akun '+who+'?\n\nSemua data pernikahannya akan dihapus PERMANEN dan tidak bisa dikembalikan. Login-nya juga akan dinonaktifkan.')) return;
   try{
-    await sb.from('weddings').delete().eq('user_id',id);
-    await sb.from('wedding_members').delete().eq('owner_id',id);
-    await sb.from('wedding_members').delete().eq('member_id',id);
-    const {error}=await sb.from('profiles').update({status:'rejected'}).eq('id',id);
+    const {error}=await sb.rpc('admin_delete_user',{target_user:id});
     if(error) throw error;
     toast('Akun & datanya dihapus 🗑');
-  }catch(e){ console.error(e); toast('Gagal menghapus'); }
+  }catch(e){
+    console.error(e);
+    const msg=(e&&e.message)||'';
+    if(msg.includes('Tidak diizinkan')) toast('Hanya admin yang bisa menghapus.');
+    else if(/function|does not exist|could not find|schema|admin_delete_user/i.test(msg)) toast('Jalankan dulu SQL admin_delete_user di Supabase.');
+    else toast('Gagal menghapus');
+  }
   loadAdminUsers();
 }
 async function rejectUser(id){

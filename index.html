@@ -237,6 +237,17 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
 .ses-chips{display:flex;flex-wrap:wrap;gap:8px}
 .ses-chip{padding:7px 12px;border-radius:999px;border:1.5px dashed var(--line);background:#fff;color:var(--ink-soft);font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s}
 .ses-chip:hover{border-color:var(--rose);color:var(--rose);border-style:solid}
+.rd-list{display:flex;flex-direction:column}
+.rd-item{display:flex;align-items:flex-start;gap:14px;padding:14px 4px;border-bottom:1px dashed var(--line)}
+.rd-item:last-child{border-bottom:none}
+.rd-check{flex:0 0 auto;width:26px;height:26px;border-radius:50%;border:2px solid var(--line);background:#fff;color:#fff;font-weight:800;font-size:14px;cursor:pointer;display:grid;place-items:center;margin-top:1px;transition:.15s;-webkit-tap-highlight-color:transparent}
+.rd-item.done .rd-check{background:var(--mint,#34d399);border-color:transparent}
+.rd-time{flex:0 0 auto;font-weight:800;font-size:17px;color:var(--rose);font-variant-numeric:tabular-nums;min-width:56px;margin-top:1px}
+.rd-body{flex:1;min-width:0}
+.rd-act{font-weight:700;font-size:15px;line-height:1.35}
+.rd-item.done .rd-act{text-decoration:line-through;color:var(--ink-soft)}
+.rd-pic{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-top:3px}
+.rd-tools{flex:0 0 auto;display:flex;gap:4px}
 .vrate{color:var(--gold,#C9A24B);font-size:14px;letter-spacing:1px;margin-top:4px}
 .vchosen{display:inline-block;margin-left:8px;font-size:11px;font-weight:800;color:#0f9d7a;background:#dcfce7;border-radius:999px;padding:2px 9px;vertical-align:middle}
 .cmp-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:var(--r-md);background:#fff;box-shadow:var(--sh-1)}
@@ -406,6 +417,16 @@ body.admin-mode .fab,body.admin-mode .persona{display:none!important}
 body.is-app:not(.admin-mode) .fab-fb{display:grid}
 .fab-fb:hover{transform:translateY(-3px) scale(1.05)}
 .fab-fb:active{transform:scale(.95)}
+/* ---- Label tooltip untuk FAB (Masukan & Tema/Musik) ---- */
+.fab::after,.fab-fb::after{content:attr(data-tip);position:absolute;top:50%;background:#43233A;color:#fff;font-size:12px;font-weight:700;white-space:nowrap;padding:7px 11px;border-radius:9px;box-shadow:0 6px 18px rgba(67,35,58,.28);opacity:0;pointer-events:none;transform:translateY(-50%) scale(.9);transition:opacity .16s,transform .16s}
+.fab::before,.fab-fb::before{content:"";position:absolute;top:50%;transform:translateY(-50%);border:6px solid transparent;opacity:0;transition:opacity .16s}
+.fab-fb::after{left:calc(100% + 12px)}
+.fab-fb::before{left:calc(100% + 4px);border-right-color:#43233A}
+.fab::after{right:calc(100% + 12px)}
+.fab::before{right:calc(100% + 4px);border-left-color:#43233A}
+.fab:hover::after,.fab-fb:hover::after{opacity:1;transform:translateY(-50%) scale(1)}
+.fab:hover::before,.fab-fb:hover::before{opacity:1}
+@media(hover:none){.fab::after,.fab-fb::after{opacity:1;transform:translateY(-50%) scale(1)}.fab::before,.fab-fb::before{opacity:1}}
 .fbpanel{position:fixed;left:18px;bottom:78px;z-index:61;width:320px;max-width:calc(100vw - 36px);background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:0 22px 54px rgba(67,35,58,.24);padding:16px;opacity:0;transform:translateY(12px) scale(.96);pointer-events:none;transition:.22s;transform-origin:bottom left}
 .fbpanel.open{opacity:1;transform:none;pointer-events:auto}
 body:not(.is-app) .fbpanel,body.admin-mode .fbpanel{display:none!important}
@@ -774,6 +795,13 @@ body.admin-mode #appFoot{display:none!important}
 #pdfStage .cmpx-pick{margin-top:4px;display:inline-block;background:#dcfce7;color:#0f9d7a;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px}
 #pdfStage .cmpx-stars{color:#f5b301;letter-spacing:1px}
 #pdfStage .cmpx-tag{display:inline-block;background:#dcfce7;color:#0f9d7a;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:999px;vertical-align:middle}
+#pdfStage .rdx{width:100%;border-collapse:collapse;font-size:13px}
+#pdfStage .rdx th,#pdfStage .rdx td{border:1px solid #F0DCE4;padding:10px 12px;text-align:left;vertical-align:top}
+#pdfStage .rdx thead th{background:#FFF1F6;color:#43233A;font-weight:800;font-size:13px}
+#pdfStage .rdx-h-time,#pdfStage .rdx-time{width:76px}
+#pdfStage .rdx-h-pic,#pdfStage .rdx-pic{width:180px;color:#7A5C70}
+#pdfStage .rdx-time{font-weight:800;color:#C7396B}
+#pdfStage .rdx-act{font-weight:600}
 .cmp-dim{color:#c9b3bb}
 .acc-bar{padding:11px 16px;font-size:13px;font-weight:600;line-height:1.5;text-align:center}
 .acc-trial{background:linear-gradient(90deg,#FFF3E0,#FFE9C7);color:#8a5a12;border-bottom:1px solid #F0DCA8}
@@ -861,9 +889,9 @@ body.readonly #view textarea{pointer-events:none;opacity:.55;background:#f4f4f4}
 <div class="overlay" id="overlay"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast"></div>
 <div class="confetti-layer" id="confetti"></div>
-<button class="fab" id="fabBtn" data-act="toggle-personalize" aria-label="Personalisasi" title="Personalisasi">✨</button>
+<button class="fab" id="fabBtn" data-act="toggle-personalize" aria-label="Tema & Musik" data-tip="Tema & Musik">✨</button>
 <div class="persona" id="personaPanel"></div>
-<button class="fab-fb" id="fbBtn" data-act="toggle-feedback" aria-label="Lapor atau beri masukan" title="Lapor bug / kirim masukan">💬</button>
+<button class="fab-fb" id="fbBtn" data-act="toggle-feedback" aria-label="Lapor atau beri masukan" data-tip="Lapor / Masukan">💬</button>
 <div class="fbpanel" id="feedbackPanel"></div>
 <input type="file" id="importFile" accept="application/json" hidden>
 <input type="file" id="moodInput" accept="image/*" multiple hidden>
@@ -937,7 +965,7 @@ function defaultData(){
   return {
     settings:{ partner1:'Mempelai', partner2:'Pasangan', date:defaultDate(), totalBudget:0, photo:'', photoPath:'' },
     budget:cats, vendors:[], checklist,
-    guests:[], seserahan:[], moodboard:[], activeTab:'dashboard',
+    guests:[], seserahan:[], rundown:[], moodboard:[], activeTab:'dashboard',
     invite:{ on:false, slug:'', theme:'minimalis', greeting:'', quote:'', akad:{date:'',time:'',place:'',map:''}, resepsi:{date:'',time:'',place:'',map:''}, gift:{bank:'',rek:'',name:'',ewallet:'',note:''} }
   };
 }
@@ -960,7 +988,7 @@ let sb=null, currentUser=null, lastWriteISO=null, rtChannel=null, welcomed=false
 let activeWeddingId=null, isWeddingOwner=true, myShareCode=null, partnerOwnerEmail='';
 let userStatus='approved', isAdmin=false;
 let userAccess='paid', trialEnds=null, holdEnds=null, READONLY=false, accessPhase='ok';
-const MUT_ACTIONS=new Set(['add-budget','add-guest','add-mood','add-seserahan','add-task','add-vendor','del-budget','del-guest','del-mood','del-seserahan','del-task','del-vendor','del-wish','edit-guest','edit-vendor','save-guest','save-vendor','save-settings','save-invite','toggle-seserahan','toggle-task','quick-seserahan','cmp-choose','gen-code','join-wedding','leave-wedding','revoke-member','set-theme','set-inv-theme','toggle-personalize']);
+const MUT_ACTIONS=new Set(['add-budget','add-guest','add-mood','add-seserahan','add-task','add-vendor','add-rundown','del-budget','del-guest','del-mood','del-seserahan','del-task','del-vendor','del-wish','del-rundown','edit-guest','edit-vendor','edit-rundown','save-guest','save-vendor','save-settings','save-invite','save-rundown','toggle-seserahan','toggle-task','toggle-rundown','quick-seserahan','load-rundown-template','cmp-choose','gen-code','join-wedding','leave-wedding','revoke-member','set-theme','set-inv-theme','toggle-personalize','print-recap','export-compare','export-rundown']);
 function daysLeft(ts){ if(!ts) return 0; return Math.max(0, Math.ceil((new Date(ts).getTime()-Date.now())/86400000)); }
 function computeAccess(){
   READONLY=false; accessPhase='ok';
@@ -1169,7 +1197,7 @@ function renderCountdown(){
 }
 
 /* ============================================================ RENDER: TABS ============================================================ */
-const TABS=[['dashboard','📊','Ringkasan'],['budget','💰','Anggaran'],['vendor','🤝','Vendor'],['compare','⚖️','Bandingkan'],['checklist','✅','Checklist'],['guests','💌','Tamu'],['seserahan','🎁','Seserahan'],['moodboard','🎨','Inspirasi']];
+const TABS=[['dashboard','📊','Ringkasan'],['budget','💰','Anggaran'],['vendor','🤝','Vendor'],['compare','⚖️','Bandingkan'],['checklist','✅','Checklist'],['guests','💌','Tamu'],['seserahan','🎁','Seserahan'],['rundown','⏰','Rundown'],['moodboard','🎨','Inspirasi']];
 function renderTabs(){
   $('#tabs').innerHTML=TABS.map(([id,emo,lbl])=>
     `<button class="tab ${state.activeTab===id?'active':''}" data-act="tab" data-tab="${id}"><span class="emo">${emo}</span>${lbl}</button>`
@@ -1181,7 +1209,7 @@ function switchTab(t){ state.activeTab=t; save(); renderTabs(); renderView(); wi
 function renderView(){
   const v=$('#view');
   if(state.activeTab==='invite') state.activeTab='dashboard';
-  (({dashboard:renderDashboard,budget:renderBudget,vendor:renderVendors,compare:renderCompare,checklist:renderChecklist,guests:renderGuests,seserahan:renderSeserahan,moodboard:renderMoodboard}[state.activeTab])||renderDashboard)(v);
+  (({dashboard:renderDashboard,budget:renderBudget,vendor:renderVendors,compare:renderCompare,checklist:renderChecklist,guests:renderGuests,seserahan:renderSeserahan,rundown:renderRundown,moodboard:renderMoodboard}[state.activeTab])||renderDashboard)(v);
 }
 
 /* ---------- donut svg ---------- */
@@ -1303,6 +1331,84 @@ function statCard(c,ic,lbl,val,sub){
   </div>`;
 }
 
+/* ============================================================ RUNDOWN HARI-H ============================================================ */
+const RUNDOWN_TEMPLATE=[
+  ['04:30','Persiapan & MUA mempelai wanita','MUA'],
+  ['06:30','Persiapan mempelai pria',''],
+  ['07:00','Kedatangan keluarga & saksi','Keluarga'],
+  ['08:00','Akad nikah','Penghulu / KUA'],
+  ['09:00','Sungkeman & doa',''],
+  ['09:30','Sesi foto keluarga','Fotografer'],
+  ['10:30','Istirahat & persiapan resepsi','WO'],
+  ['12:30','Tamu mulai berdatangan','Penerima tamu'],
+  ['13:00','Resepsi dimulai — pembukaan MC','MC'],
+  ['13:15','Kedatangan mempelai ke pelaminan','WO'],
+  ['13:30','Makan & ramah tamah','Katering'],
+  ['14:30','Hiburan / musik','Band / MC'],
+  ['15:30','Sesi foto bersama tamu','Fotografer'],
+  ['16:30','Penutupan acara','MC'],
+];
+function rundownSorted(){ return (state.rundown||[]).slice().sort((a,b)=>(a.time||'').localeCompare(b.time||'')); }
+function renderRundown(v){
+  const items=rundownSorted();
+  const done=items.filter(i=>i.done).length;
+  const list = items.length ? items.map(i=>`<div class="rd-item${i.done?' done':''}">
+      <button class="rd-check" data-act="toggle-rundown" data-id="${i.id}" title="Tandai selesai">${i.done?'✓':''}</button>
+      <div class="rd-time">${esc(i.time||'--:--')}</div>
+      <div class="rd-body">
+        <div class="rd-act">${esc(i.activity||'')}</div>
+        ${i.pic?`<div class="rd-pic">👤 ${esc(i.pic)}</div>`:''}
+      </div>
+      <div class="rd-tools">
+        <button class="gbtn" data-act="edit-rundown" data-id="${i.id}">✏️</button>
+        <button class="gbtn del" data-act="del-rundown" data-id="${i.id}">🗑</button>
+      </div>
+    </div>`).join('')
+    : `<div class="card empty"><div class="em">⏰</div><h3>Belum ada susunan acara</h3><p>Buat rundown acara hari-H (per jam) lengkap dengan penanggung jawab tiap sesi. Bisa mulai dari template siap pakai lalu tinggal disesuaikan.</p><button class="btn btn-pri" data-act="load-rundown-template" style="margin-top:8px">✨ Muat Template Rundown</button></div>`;
+  v.innerHTML=`
+  <div class="card pad-lg">
+    <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:12px">
+      ${miniStat('Total Acara',items.length,'grape')}
+      ${miniStat('Sudah Selesai',done,'mint')}
+      ${miniStat('Belum',items.length-done,'coral')}
+    </div>
+  </div>
+  <div class="section-head" style="margin-top:20px"><div><h2>Susunan Acara Hari-H</h2><p>Urut otomatis sesuai jam · ketuk lingkaran saat sesi selesai</p></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${items.length?`<button class="btn btn-ghost" data-act="export-rundown">📥 Ekspor PDF</button>`:''}
+      ${items.length?`<button class="btn btn-pri" data-act="add-rundown">+ Acara</button>`:''}
+    </div></div>
+  <div class="rd-list">${list}</div>`;
+}
+function rundownModal(id){
+  const x=id? (state.rundown||[]).find(r=>r.id===id) : {time:'',activity:'',pic:''};
+  openModal(`
+    <div class="modal-head"><h3>${id?'Edit Acara':'Acara Baru'}</h3><button class="modal-x" data-act="close">✕</button></div>
+    <div class="modal-body">
+      <div class="mrow">
+        <div class="mfield"><label>Waktu</label><input type="time" id="rd-time" value="${esc(x.time||'')}"></div>
+        <div class="mfield"><label>Penanggung Jawab</label><input id="rd-pic" value="${esc(x.pic||'')}" placeholder="Mis. MC / WO / Katering"></div>
+      </div>
+      <div class="mfield"><label>Nama Acara *</label><input id="rd-act" value="${esc(x.activity||'')}" placeholder="Mis. Akad nikah"></div>
+      <div class="modal-foot">
+        ${id?`<button class="btn btn-danger" data-act="del-rundown" data-id="${id}">Hapus</button>`:''}
+        <button class="btn btn-pri btn-block" data-act="save-rundown" data-id="${id||''}">${id?'Simpan':'Tambah Acara'}</button>
+      </div>
+    </div>`);
+}
+function saveRundown(id){
+  const activity=$('#rd-act').value.trim();
+  if(!activity){ $('#rd-act').focus(); toast('Nama acara wajib diisi'); return; }
+  const data={time:$('#rd-time').value||'', activity, pic:$('#rd-pic').value.trim()};
+  if(id){ Object.assign((state.rundown||[]).find(r=>r.id===id),data); }
+  else { data.id=uid(); data.done=false; (state.rundown=state.rundown||[]).push(data); }
+  save(); closeModal(); renderRundown($('#view'));
+  toast(id?'Acara diperbarui ⏰':'Acara ditambahkan ⏰');
+}
+function delRundown(id){ state.rundown=(state.rundown||[]).filter(r=>r.id!==id); save(); closeModal(); renderRundown($('#view')); }
+function toggleRundown(id){ const i=(state.rundown||[]).find(r=>r.id===id); if(i){ i.done=!i.done; save(); renderRundown($('#view')); } }
+function loadRundownTemplate(){ state.rundown=state.rundown||[]; RUNDOWN_TEMPLATE.forEach(([time,activity,pic])=>state.rundown.push({id:uid(),time,activity,pic,done:false})); save(); renderRundown($('#view')); toast('Template rundown dimuat ✨'); }
+
 /* ============================================================ ANGGARAN ============================================================ */
 function renderBudget(v){
   const b=budgetTotals();
@@ -1330,6 +1436,12 @@ function renderBudget(v){
     </div>`;
   }).join('');
 
+  const actSegs=state.budget.filter(c=>+c.actual>0).map(c=>({value:+c.actual,color:c.color,name:c.name}));
+  const actLegend=actSegs.length?actSegs.slice().sort((a,c)=>c.value-a.value).slice(0,7).map(s=>{
+    const pct=Math.round(s.value/b.act*100);
+    return `<div class="legend-row"><span class="sw" style="background:${s.color}"></span><span class="nm">${esc(s.name)}</span><span class="vl">${pct}%</span></div>`;
+  }).join(''):`<p style="color:var(--ink-soft);font-size:14px">Isi "Biaya Aktual" di tiap pos untuk melihat grafik pengeluaran 💸</p>`;
+
   v.innerHTML=`
   <div class="card pad-lg">
     <div class="section-head" style="margin:0 0 14px"><h2 style="font-size:20px">Ringkasan Anggaran</h2>
@@ -1343,6 +1455,14 @@ function renderBudget(v){
     <div class="bar" style="margin-top:18px"><span id="overall-bar" style="width:${usedPct}%;background:var(--grad)"></span></div>
     <div class="progress-meta"><span id="overall-cap">Aktual ${rp(b.act)} dari anggaran ${rp(b.budget)} (${usedPct}%)</span></div>
     <div id="budget-warn">${overBudget?`<div class="warn">⚠ Estimasi (${rp(b.est)}) melebihi total anggaran (${rp(b.budget)}).</div>`:''}</div>
+  </div>
+
+  <div class="card pad-lg" style="margin-top:16px">
+    <div class="section-head" style="margin:0 0 8px"><h2 style="font-size:20px">Ke Mana Anggaran Pergi</h2><p>berdasarkan biaya aktual</p></div>
+    <div class="donut-flex">
+      ${donutSVG(actSegs,'Total Aktual',rp(b.act))}
+      <div class="legend">${actLegend}</div>
+    </div>
   </div>
 
   <div class="section-head" style="margin-top:22px"><div><h2>Pos Pengeluaran</h2><p>Ketik nominal langsung di tiap kolom — tersimpan otomatis</p></div>
@@ -2010,8 +2130,40 @@ async function generateComparePdf(){
   }catch(e){ console.error(e); toast('Gagal membuat PDF'); }
   finally{ $('#pdfStage').innerHTML=''; }
 }
-
-function vLines(s){ return String(s||'').split('\n').map(t=>t.trim()).filter(Boolean); }
+function buildRundownPdfStage(){
+  const s=state.settings;
+  const items=rundownSorted();
+  const rows=items.map(i=>`<tr class="rdx-row">
+    <td class="rdx-time">${esc(i.time||'--:--')}</td>
+    <td class="rdx-act">${esc(i.activity||'')}</td>
+    <td class="rdx-pic">${i.pic?esc(i.pic):'—'}</td>
+  </tr>`).join('');
+  const dateTxt=s.date?fmtDateLong(s.date):'';
+  $('#pdfStage').innerHTML=`
+    <div class="pdf-hero">
+      <div class="pdf-ring">⏰</div>
+      <div class="pdf-eyebrow">Rundown Acara Hari-H</div>
+      <div class="pdf-names">${esc(s.partner1||'Mempelai')} &amp; ${esc(s.partner2||'Pasangan')}</div>
+      ${dateTxt?`<div class="pdf-date">${esc(dateTxt)}</div>`:''}
+    </div>
+    <div class="pdf-body">
+      <table class="rdx"><thead><tr><th class="rdx-h-time">Waktu</th><th class="rdx-h-act">Acara</th><th class="rdx-h-pic">Penanggung Jawab</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="pdf-foot" style="margin-top:24px;text-align:center;color:#9A6E72;font-size:12px">Dibuat dengan NaikPelaminan · naikpelaminan.space</div>
+    </div>`;
+}
+async function generateRundownPdf(){
+  if(!window.html2canvas || !window.jspdf){ toast('Komponen PDF belum termuat, coba lagi sebentar'); return; }
+  if(!(state.rundown||[]).length){ toast('Belum ada acara untuk diekspor'); return; }
+  toast('Menyiapkan PDF…');
+  buildRundownPdfStage();
+  await new Promise(r=>setTimeout(r,350));
+  try{
+    const fn=`rundown-${(state.settings.partner1||'mempelai')}-${(state.settings.partner2||'pasangan')}.pdf`.toLowerCase().replace(/[^a-z0-9-]+/g,'-');
+    await stageToPdf(fn,'.pdf-hero,.rdx-row,.pdf-foot');
+    toast('PDF tersimpan 📄');
+  }catch(e){ console.error(e); toast('Gagal membuat PDF'); }
+  finally{ $('#pdfStage').innerHTML=''; }
+}
 function autoRating(pros,cons){ const P=vLines(pros).length, C=vLines(cons).length; if(P+C===0) return 0; return Math.max(1,Math.min(5,Math.round(1+4*P/(P+C)))); }
 function vendorRating(v){ const r=autoRating(v&&v.pros,v&&v.cons); return r||Math.round(+((v&&v.rating)||0)); }
 function updateAutoRating(){
@@ -2165,7 +2317,11 @@ function resetData(){
 document.addEventListener('click',e=>{
   const t=e.target.closest('[data-act]'); if(!t) return;
   const a=t.dataset.act, id=t.dataset.id;
-  if(READONLY && MUT_ACTIONS.has(a)){ toast('Akun kamu mode baca-saja 🔒 — tidak bisa menambah atau mengubah data'); return; }
+  if(READONLY && MUT_ACTIONS.has(a)){
+    const isExp = (a==='print-recap'||a==='export-compare'||a==='export-rundown');
+    toast(isExp ? '🔒 Ekspor PDF terkunci saat akun di-hold. Lakukan pembayaran untuk membukanya.' : 'Akun kamu mode baca-saja 🔒 — tidak bisa menambah atau mengubah data');
+    return;
+  }
   switch(a){
     case 'tab': switchTab(t.dataset.tab); break;
     case 'open-settings': settingsModal(); break;
@@ -2265,10 +2421,16 @@ document.addEventListener('click',e=>{
     case 'add-guest': guestModal(null); break;
     case 'edit-guest': guestModal(id); break;
     case 'save-guest': saveGuest(id); break;
-    case 'add-seserahan': addSeserahan(); break;
-    case 'quick-seserahan': quickSeserahan(t.dataset.name); break;
+    case 'add-seserahan': addSeserahan(); break;    case 'quick-seserahan': quickSeserahan(t.dataset.name); break;
     case 'toggle-seserahan': toggleSeserahan(id); break;
     case 'del-seserahan': delSeserahan(id); break;
+    case 'add-rundown': rundownModal(null); break;
+    case 'edit-rundown': rundownModal(id); break;
+    case 'save-rundown': saveRundown(id); break;
+    case 'del-rundown': delRundown(id); break;
+    case 'toggle-rundown': toggleRundown(id); break;
+    case 'load-rundown-template': loadRundownTemplate(); break;
+    case 'export-rundown': generateRundownPdf(); break;
     case 'del-guest':
       if(confirm('Hapus kelompok tamu ini?')){ state.guests=state.guests.filter(g=>g.id!==id); save(); closeModal(); renderGuests($('#view')); toast('Tamu dihapus'); }
       break;

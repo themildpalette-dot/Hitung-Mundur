@@ -806,15 +806,6 @@ body.admin-mode #appFoot{display:none!important}
 .acc-bar{padding:11px 16px;font-size:13px;font-weight:600;line-height:1.5;text-align:center}
 .acc-trial{background:linear-gradient(90deg,#FFF3E0,#FFE9C7);color:#8a5a12;border-bottom:1px solid #F0DCA8}
 .acc-lock{background:linear-gradient(90deg,#FFF1F3,#FFE0E6);color:#9f1239;border-bottom:1px solid #F6C9D2}
-body.readonly [data-act^="add-"],
-body.readonly [data-act^="edit-"],
-body.readonly [data-act^="del-"],
-body.readonly [data-act="gen-code"],
-body.readonly [data-act="join-wedding"],
-body.readonly [data-act="revoke-member"],
-body.readonly [data-act="leave-wedding"],
-body.readonly [data-act="cmp-choose"],
-body.readonly [data-act="set-theme"]{display:none!important}
 body.readonly #view input[type=text],
 body.readonly #view input[type=number],
 body.readonly #view textarea{pointer-events:none;opacity:.55;background:#f4f4f4}
@@ -1068,9 +1059,10 @@ async function resolveActiveWedding(){
 async function cloudSave(){
   if(READONLY) return;
   const iso=new Date().toISOString();
+  lastWriteISO=iso;   // set lebih awal agar gema realtime dari perangkat ini langsung diabaikan (hindari race → render ulang & toast palsu)
   const {error}=await sb.from('weddings').update({data:state,updated_at:iso}).eq('user_id',activeWeddingId);
   if(error){ setSync('error'); console.error('Gagal menyimpan:',error); }
-  else { lastWriteISO=iso; setSync('saved'); }
+  else { setSync('saved'); }
 }
 async function cloudCreate(){
   const iso=new Date().toISOString();
@@ -1209,7 +1201,12 @@ function switchTab(t){ state.activeTab=t; save(); renderTabs(); renderView(); wi
 function renderView(){
   const v=$('#view');
   if(state.activeTab==='invite') state.activeTab='dashboard';
-  (({dashboard:renderDashboard,budget:renderBudget,vendor:renderVendors,compare:renderCompare,checklist:renderChecklist,guests:renderGuests,seserahan:renderSeserahan,rundown:renderRundown,moodboard:renderMoodboard}[state.activeTab])||renderDashboard)(v);
+  const fn=({dashboard:renderDashboard,budget:renderBudget,vendor:renderVendors,compare:renderCompare,checklist:renderChecklist,guests:renderGuests,seserahan:renderSeserahan,rundown:renderRundown,moodboard:renderMoodboard}[state.activeTab])||renderDashboard;
+  try{ fn(v); }
+  catch(e){
+    console.error('Gagal menampilkan tab "'+state.activeTab+'":', e);
+    v.innerHTML=`<div class="card empty"><div class="em">😵</div><h3>Ups, bagian ini gagal ditampilkan</h3><p>Coba pilih tab lain lalu kembali ke sini, atau muat ulang halaman. Kalau masih terjadi, kabari admin ya.</p></div>`;
+  }
 }
 
 /* ---------- donut svg ---------- */
@@ -2165,7 +2162,7 @@ async function generateRundownPdf(){
   finally{ $('#pdfStage').innerHTML=''; }
 }
 function autoRating(pros,cons){ const P=vLines(pros).length, C=vLines(cons).length; if(P+C===0) return 0; return Math.max(1,Math.min(5,Math.round(1+4*P/(P+C)))); }
-function vendorRating(v){ const r=autoRating(v&&v.pros,v&&v.cons); return r||Math.round(+((v&&v.rating)||0)); }
+function vendorRating(v){ const r=autoRating(v&&v.pros,v&&v.cons) || Math.round(+((v&&v.rating)||0)); return Math.max(0,Math.min(5,r||0)); }
 function updateAutoRating(){
   const el=document.getElementById('v-rating-preview'); if(!el) return;
   const P=vLines($('#v-pros').value).length, C=vLines($('#v-cons').value).length;
@@ -2318,8 +2315,9 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('[data-act]'); if(!t) return;
   const a=t.dataset.act, id=t.dataset.id;
   if(READONLY && MUT_ACTIONS.has(a)){
+    const why = accessPhase==='hold' ? 'Akun sedang di-hold' : (accessPhase==='trial_expired' ? 'Masa coba sudah berakhir' : 'Akun mode baca-saja');
     const isExp = (a==='print-recap'||a==='export-compare'||a==='export-rundown');
-    toast(isExp ? '🔒 Ekspor PDF terkunci saat akun di-hold. Lakukan pembayaran untuk membukanya.' : 'Akun kamu mode baca-saja 🔒 — tidak bisa menambah atau mengubah data');
+    toast('🔒 '+why+' — '+(isExp?'ekspor PDF terkunci. ':'tidak bisa menambah/mengubah data. ')+'Lakukan pembayaran untuk membuka semua fitur.');
     return;
   }
   switch(a){

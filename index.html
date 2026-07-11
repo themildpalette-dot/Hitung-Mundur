@@ -2161,6 +2161,7 @@ async function generateRundownPdf(){
   }catch(e){ console.error(e); toast('Gagal membuat PDF'); }
   finally{ $('#pdfStage').innerHTML=''; }
 }
+function vLines(s){ return String(s||'').split('\n').map(t=>t.trim()).filter(Boolean); }
 function autoRating(pros,cons){ const P=vLines(pros).length, C=vLines(cons).length; if(P+C===0) return 0; return Math.max(1,Math.min(5,Math.round(1+4*P/(P+C)))); }
 function vendorRating(v){ const r=autoRating(v&&v.pros,v&&v.cons) || Math.round(+((v&&v.rating)||0)); return Math.max(0,Math.min(5,r||0)); }
 function updateAutoRating(){

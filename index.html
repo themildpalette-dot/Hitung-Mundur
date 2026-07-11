@@ -1571,7 +1571,7 @@ function renderVendors(v){
 }
 function vendorCard(x){
   const cats=vendorCats(x);
-  const waLink = x.phone? `https://wa.me/${x.phone.replace(/\D/g,'').replace(/^0/,'62')}` : '';
+  const waLink = x.phone? `https://wa.me/${String(x.phone).replace(/\D/g,'').replace(/^0/,'62')}` : '';
   const tags = cats.map(c=>{ const col=PALETTE[c.length%PALETTE.length]; return `<span class="vtag" style="background:${hexA(col,.14)};color:${col}">${esc(c)}</span>`; }).join('');
   return `<div class="vendor">
     <div class="vendor-head">
@@ -1629,7 +1629,7 @@ function renderCompare(v){
         ${row('Narahubung',x=>esc(x.contact||'-'))}
         ${row('No. HP / WA',x=>x.phone?esc(x.phone):'-')}
         ${row('Catatan',x=>x.notes?esc(x.notes):'-')}
-        ${row('',x=>{const wa=x.phone?`https://wa.me/${x.phone.replace(/\D/g,'').replace(/^0/,'62')}`:'';return `<div class="cmp-acts">${wa?`<a class="va wa" href="${wa}" target="_blank" rel="noopener">💬</a>`:''}<button class="va" data-act="edit-vendor" data-id="${x.id}">✏️</button><button class="va cmp-choose${x.chosen?' on':''}" data-act="cmp-choose" data-id="${x.id}">${x.chosen?'✓ Pilihan':'⭐ Pilih'}</button></div>`;})}
+        ${row('',x=>{const wa=x.phone?`https://wa.me/${String(x.phone).replace(/\D/g,'').replace(/^0/,'62')}`:'';return `<div class="cmp-acts">${wa?`<a class="va wa" href="${wa}" target="_blank" rel="noopener">💬</a>`:''}<button class="va" data-act="edit-vendor" data-id="${x.id}">✏️</button><button class="va cmp-choose${x.chosen?' on':''}" data-act="cmp-choose" data-id="${x.id}">${x.chosen?'✓ Pilihan':'⭐ Pilih'}</button></div>`;})}
       </tbody>
     </table></div>`;
   }

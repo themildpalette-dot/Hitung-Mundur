@@ -956,7 +956,7 @@ function defaultData(){
   return {
     settings:{ partner1:'Mempelai', partner2:'Pasangan', date:defaultDate(), totalBudget:0, photo:'', photoPath:'' },
     budget:cats, vendors:[], checklist,
-    guests:[], seserahan:[], rundown:[], moodboard:[], activeTab:'dashboard',
+    guests:[], seserahan:[], rundown:[], moodboard:[],
     invite:{ on:false, slug:'', theme:'minimalis', greeting:'', quote:'', akad:{date:'',time:'',place:'',map:''}, resepsi:{date:'',time:'',place:'',map:''}, gift:{bank:'',rek:'',name:'',ewallet:'',note:''} }
   };
 }
@@ -977,7 +977,11 @@ const CLOUD_ENABLED = SUPABASE_URL.startsWith('https://')
   && SUPABASE_ANON_KEY.length > 40
   && !SUPABASE_ANON_KEY.includes('YOUR');
 
-let sb=null, currentUser=null, lastWriteISO=null, rtChannel=null, welcomed=false;
+let sb=null, currentUser=null, lastWriteISO=null, lastWriteAt=0, lastSyncToast=0, rtChannel=null, welcomed=false;
+// Tab yang sedang dibuka adalah kondisi LAYAR, bukan data pernikahan. Sengaja
+// disimpan di luar `state` supaya penyegaran data dari server tidak bisa
+// memindahkan tab yang sedang kamu buka.
+let activeTab='dashboard';
 let activeWeddingId=null, isWeddingOwner=true, myShareCode=null, partnerOwnerEmail='';
 let userStatus='approved', isAdmin=false, profileRetries=0;
 let userAccess='paid', trialEnds=null, holdEnds=null, READONLY=false, accessPhase='ok';
@@ -1077,15 +1081,16 @@ async function resolveActiveWedding(){
 async function cloudSave(){
   if(READONLY) return;
   const iso=new Date().toISOString();
-  lastWriteISO=iso;   // set lebih awal agar gema realtime dari perangkat ini langsung diabaikan (hindari race → render ulang & toast palsu)
+  lastWriteISO=iso; lastWriteAt=Date.now();   // penanda: gema dari perangkat ini harus diabaikan
   const {error}=await sb.from('weddings').update({data:state,updated_at:iso}).eq('user_id',activeWeddingId);
+  lastWriteAt=Date.now();                     // perpanjang jendela sampai balasan server tiba
   if(error){ setSync('error'); console.error('Gagal menyimpan:',error); }
   else { setSync('saved'); }
 }
 async function cloudCreate(){
   const iso=new Date().toISOString();
   const {error}=await sb.from('weddings').insert({user_id:currentUser.id,data:state,updated_at:iso});
-  if(error){ setSync('error'); console.error('Gagal membuat:',error); } else { lastWriteISO=iso; setSync('saved'); }
+  if(error){ setSync('error'); console.error('Gagal membuat:',error); } else { lastWriteISO=iso; lastWriteAt=Date.now(); setSync('saved'); }
 }
 async function cloudLoad(){
   const {data:row,error}=await sb.from('weddings').select('data,updated_at').eq('user_id',activeWeddingId).maybeSingle();
@@ -1101,19 +1106,33 @@ async function cloudLoad(){
     state=defaultData();           // anggota tetapi baris pemilik kosong
   }
 }
+function sameInstant(a,b){
+  if(!a||!b) return false;
+  const norm=v=>String(v).trim().replace(' ','T').replace(/([+-]\d{2})$/,'$1:00');
+  const ta=Date.parse(norm(a)), tb=Date.parse(norm(b));
+  return !isNaN(ta) && !isNaN(tb) && ta===tb;
+}
 function subscribeRealtime(){
   if(rtChannel) sb.removeChannel(rtChannel);
   rtChannel=sb.channel('wedding-'+activeWeddingId)
     .on('postgres_changes',{event:'*',schema:'public',table:'weddings',filter:'user_id=eq.'+activeWeddingId},payload=>{
       const row=payload.new; if(!row||!row.data) return;
-      if(row.updated_at===lastWriteISO) return;                 // abaikan gema dari perangkat ini
+      // Gema dari perangkat ini sendiri — dibandingkan sebagai WAKTU, bukan teks,
+      // karena Postgres menulis zona waktu dengan format berbeda dari browser.
+      if(sameInstant(row.updated_at,lastWriteISO)){ lastWriteISO=row.updated_at; return; }
+      // Cadangan: kalau updated_at diganti server (mis. trigger), nilainya tidak akan
+      // pernah cocok — jadi abaikan juga apa pun yang datang tepat setelah kita menulis.
+      if(Date.now()-lastWriteAt < 5000){ lastWriteISO=row.updated_at; return; }
       if($('#overlay').classList.contains('is-open')) return;   // jangan ganggu saat form terbuka
       const ae=document.activeElement;
       if(ae && (ae.matches('input,textarea,select')||ae.isContentEditable)) return; // jangan ganggu saat mengetik
       state=Object.assign(defaultData(),row.data);
       lastWriteISO=row.updated_at;
       renderHero(); renderTabs(); renderView();
-      toast('Diperbarui dari pasangan/perangkat lain ☁️');
+      if(Date.now()-lastSyncToast > 8000){      // jangan bertubi-tubi kalau suntingan beruntun
+        lastSyncToast=Date.now();
+        toast('Diperbarui dari pasangan/perangkat lain ☁️');
+      }
     }).subscribe();
 }
 
@@ -1210,19 +1229,23 @@ function renderCountdown(){
 const TABS=[['dashboard','📊','Ringkasan'],['budget','💰','Anggaran'],['vendor','🤝','Vendor'],['compare','⚖️','Bandingkan'],['checklist','✅','Checklist'],['guests','💌','Tamu'],['seserahan','🎁','Seserahan'],['rundown','⏰','Rundown'],['moodboard','🎨','Inspirasi']];
 function renderTabs(){
   $('#tabs').innerHTML=TABS.map(([id,emo,lbl])=>
-    `<button class="tab ${state.activeTab===id?'active':''}" data-act="tab" data-tab="${id}"><span class="emo">${emo}</span>${lbl}</button>`
+    `<button class="tab ${activeTab===id?'active':''}" data-act="tab" data-tab="${id}"><span class="emo">${emo}</span>${lbl}</button>`
   ).join('');
 }
-function switchTab(t){ state.activeTab=t; save(); renderTabs(); renderView(); window.scrollTo({top:0,behavior:'smooth'}); }
+function switchTab(t){
+  // Tab aktif hanya tampilan, bukan data pernikahan — tidak perlu ditulis ke server.
+  // Dulu memanggil save(), jadi tiap klik tab = satu tulisan DB + satu siaran realtime.
+  activeTab=t; renderTabs(); renderView(); window.scrollTo({top:0,behavior:'smooth'});
+}
 
 /* ============================================================ RENDER: VIEW DISPATCH ============================================================ */
 function renderView(){
   const v=$('#view');
-  if(state.activeTab==='invite') state.activeTab='dashboard';
-  const fn=({dashboard:renderDashboard,budget:renderBudget,vendor:renderVendors,compare:renderCompare,checklist:renderChecklist,guests:renderGuests,seserahan:renderSeserahan,rundown:renderRundown,moodboard:renderMoodboard}[state.activeTab])||renderDashboard;
+  if(activeTab==='invite') activeTab='dashboard';
+  const fn=({dashboard:renderDashboard,budget:renderBudget,vendor:renderVendors,compare:renderCompare,checklist:renderChecklist,guests:renderGuests,seserahan:renderSeserahan,rundown:renderRundown,moodboard:renderMoodboard}[activeTab])||renderDashboard;
   try{ fn(v); }
   catch(e){
-    console.error('Gagal menampilkan tab "'+state.activeTab+'":', e);
+    console.error('Gagal menampilkan tab "'+activeTab+'":', e);
     v.innerHTML=`<div class="card empty"><div class="em">😵</div><h3>Ups, bagian ini gagal ditampilkan</h3><p>Coba pilih tab lain lalu kembali ke sini, atau muat ulang halaman. Kalau masih terjadi, kabari admin ya.</p></div>`;
   }
 }

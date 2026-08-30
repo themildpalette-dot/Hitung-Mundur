@@ -967,6 +967,8 @@ const PHASE_ORDER = ['12+ bulan','9–12 bulan','6–9 bulan','4–6 bulan','2�
 /* ============================================================
    KONFIGURASI SUPABASE  —  sudah terisi, tidak perlu diubah
 ============================================================ */
+let TRIAL_DAYS          = 7;         // cadangan; nilai asli diambil dari app_config (atur di Konsol Admin)
+let PAYMENT_URL         = '';        // cadangan; nilai asli diambil dari app_config (atur di Konsol Admin)
 const SUPABASE_URL      = 'https://mxszmayrvxltryzolwug.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_hbIzZ8apMrORui6Td2pIdg_M6yynRa1';
 
@@ -977,7 +979,7 @@ const CLOUD_ENABLED = SUPABASE_URL.startsWith('https://')
 
 let sb=null, currentUser=null, lastWriteISO=null, rtChannel=null, welcomed=false;
 let activeWeddingId=null, isWeddingOwner=true, myShareCode=null, partnerOwnerEmail='';
-let userStatus='approved', isAdmin=false;
+let userStatus='approved', isAdmin=false, profileRetries=0;
 let userAccess='paid', trialEnds=null, holdEnds=null, READONLY=false, accessPhase='ok';
 const MUT_ACTIONS=new Set(['add-budget','add-guest','add-mood','add-seserahan','add-task','add-vendor','add-rundown','del-budget','del-guest','del-mood','del-seserahan','del-task','del-vendor','del-wish','del-rundown','edit-guest','edit-vendor','edit-rundown','save-guest','save-vendor','save-settings','save-invite','save-rundown','toggle-seserahan','toggle-task','toggle-rundown','quick-seserahan','load-rundown-template','cmp-choose','gen-code','join-wedding','leave-wedding','revoke-member','set-theme','set-inv-theme','toggle-personalize','print-recap','export-compare','export-rundown']);
 function daysLeft(ts){ if(!ts) return 0; return Math.max(0, Math.ceil((new Date(ts).getTime()-Date.now())/86400000)); }
@@ -997,14 +999,28 @@ function computeAccess(){
   document.body.classList.toggle('readonly', READONLY);
   renderAccessBanner();
 }
+async function loadTrialConfig(){
+  try{
+    const {data}=await sb.from('app_config').select('value').eq('key','trial').maybeSingle();
+    const v=(data&&data.value)||{};
+    const d=parseInt(v.days,10);
+    if(d>=1 && d<=365) TRIAL_DAYS=d;
+    PAYMENT_URL=(v.payment_url||'').trim();
+  }catch(e){ /* app_config belum ada → pakai nilai cadangan di atas */ }
+}
+function payLink(label,fallback){
+  return PAYMENT_URL
+    ? `<a href="${PAYMENT_URL}" target="_blank" rel="noopener" style="color:inherit;font-weight:800;text-decoration:underline">${label}</a>`
+    : fallback;
+}
 function renderAccessBanner(){
   const el=document.getElementById('accessBanner'); if(!el) return;
   let h='';
   if(!isAdmin){
     if(accessPhase==='trial'){ const d=daysLeft(trialEnds);
-      h=`<div class="acc-bar acc-trial">⏳ Masa coba aktif — <b>${d} hari lagi</b>. Suka? Lakukan pembayaran biar akun tetap aktif.</div>`; }
+      h=`<div class="acc-bar acc-trial">⏳ Masa coba aktif — <b>${d} hari lagi</b>. Suka? ${payLink('Aktifkan akun →','Lakukan pembayaran biar akun tetap aktif.')}</div>`; }
     else if(accessPhase==='trial_expired'){
-      h=`<div class="acc-bar acc-lock">🔒 Masa coba berakhir — akun kini <b>baca-saja</b>. Datamu aman. Lakukan pembayaran untuk aktif kembali (hubungi admin).</div>`; }
+      h=`<div class="acc-bar acc-lock">🔒 Masa coba berakhir — akun kini <b>baca-saja</b>. Semua datamu tetap tersimpan. ${payLink('Aktifkan sekarang →','Lakukan pembayaran untuk aktif kembali (hubungi admin).')}</div>`; }
     else if(accessPhase==='hold'){
       h=`<div class="acc-bar acc-lock">🔒 Akun sedang <b>di-hold</b> (mode baca-saja). Datamu tersimpan aman. Hubungi admin untuk mengaktifkan kembali.</div>`; }
   }
@@ -1017,7 +1033,9 @@ async function refreshAccess(){
     const {data}=await sb.from('profiles').select('status,access,trial_ends,hold_ends').eq('id',currentUser.id).maybeSingle();
     if(!data) return;
     if(data.status==='rejected'){ toast('Akses akunmu dihentikan admin'); setTimeout(logout,1600); return; }
+    const wasPaid=(userAccess==='paid');
     userAccess=data.access||'trial'; trialEnds=data.trial_ends||null; holdEnds=data.hold_ends||null;
+    if(!wasPaid && userAccess==='paid') toast('Pembayaranmu sudah dikonfirmasi — akun aktif penuh 💳');
     computeAccess();   // begitu admin hold/lunas/perpanjang, layar user ikut berubah tanpa refresh
   }catch(e){}
 }
@@ -2349,6 +2367,7 @@ document.addEventListener('click',e=>{
     case 'fb-reopen': fbReopen(id); break;
     case 'fb-delete': fbDelete(id); break;
     case 'save-announce': saveAnnounce(); break;
+    case 'save-trial-config': saveTrialConfig(); break;
     case 'dismiss-announce': announceDismissed=true; { const b=$('#announceBar'); if(b) b.innerHTML=''; } break;
     case 'toggle-personalize': togglePersona(); break;
     case 'toggle-feedback': toggleFeedback(); break;
@@ -3465,14 +3484,23 @@ async function handleAuth(event,session){
 
 /* ============================================================ APPROVAL GATE & ADMIN ============================================================ */
 async function fetchProfile(){
-  try{
-    const {data,error}=await sb.from('profiles').select('status,is_admin').eq('id',currentUser.id).maybeSingle();
-    if(error) throw error;                 // tabel belum dibuat → gate nonaktif (lihat catch)
-    userStatus = data ? (data.status||'pending') : 'pending';
-    isAdmin = data ? !!data.is_admin : false;
-  }catch(e){
-    // Jika tabel profiles belum ada (SQL belum dijalankan), jangan kunci siapa pun.
+  // Baris profil dibuat oleh trigger di Supabase — tepat setelah daftar, baris itu
+  // kadang belum sempat ada. Tunggu sebentar dan coba lagi, jangan langsung dikunci.
+  let row=null, tableMissing=false;
+  for(let i=0;i<6;i++){
+    try{
+      const {data,error}=await sb.from('profiles').select('status,is_admin').eq('id',currentUser.id).maybeSingle();
+      if(error) throw error;               // tabel belum dibuat → gate nonaktif
+      if(data){ row=data; break; }
+    }catch(e){ tableMissing=true; break; }
+    await new Promise(r=>setTimeout(r,500));
+  }
+  if(tableMissing || !row){
+    // Tabel belum ada, atau trigger belum sempat bikin barisnya → jangan kunci siapa pun.
     userStatus='approved'; isAdmin=false;
+  }else{
+    userStatus = row.status || 'approved';   // default approved: pendaftaran tidak lagi perlu ditinjau
+    isAdmin = !!row.is_admin;
   }
   // Status akses (trial/paid/hold) — opsional; kalau kolom belum ada, anggap full akses.
   userAccess='paid'; trialEnds=null; holdEnds=null;
@@ -3480,19 +3508,22 @@ async function fetchProfile(){
     const {data}=await sb.from('profiles').select('access,trial_ends,hold_ends').eq('id',currentUser.id).maybeSingle();
     if(data){ userAccess=data.access||'trial'; trialEnds=data.trial_ends||null; holdEnds=data.hold_ends||null; }
   }catch(e){ userAccess='paid'; }
+  await loadTrialConfig();     // ambil TRIAL_DAYS & PAYMENT_URL sebelum banner digambar
   computeAccess();
 }
 function showPendingScreen(){
   $('#auth').classList.add('show');
   $('#auth').innerHTML=`
     <div class="auth-card">
-      <div class="auth-hero"><div class="ring">⏳</div><h1>Menunggu Persetujuan</h1><p>Pendaftaranmu sedang ditinjau admin</p></div>
+      <div class="auth-hero"><div class="ring">⏳</div><h1>Menyiapkan Akun</h1><p>Sebentar ya, akunmu sedang disiapkan</p></div>
       <div class="auth-body">
-        <p style="text-align:center;font-size:13.5px;color:var(--ink-soft);line-height:1.6">Akun <b>${esc(displayUser(currentUser.email)||'')}</b> sudah terdaftar dan menunggu persetujuan admin. Kamu bisa masuk setelah disetujui.</p>
-        <button class="btn btn-pri btn-block" data-act="recheck-status" style="margin-top:18px">🔄 Cek Status</button>
+        <p style="text-align:center;font-size:13.5px;color:var(--ink-soft);line-height:1.6">Akun <b>${esc(displayUser(currentUser.email)||'')}</b> sudah terdaftar. Halaman ini akan terbuka sendiri begitu siap.</p>
+        <button class="btn btn-pri btn-block" data-act="recheck-status" style="margin-top:18px">🔄 Coba Lagi</button>
         <button class="btn btn-ghost btn-block" data-act="logout" style="margin-top:8px">Keluar</button>
       </div>
     </div>`;
+  // Auto-retry: kalau trigger profil telat, user tidak perlu menekan apa pun.
+  if(profileRetries<4){ profileRetries++; setTimeout(()=>{ if(userStatus!=='approved') recheckStatus(); }, 2000); }
 }
 function showRejectedScreen(){
   $('#auth').classList.add('show');
@@ -3512,7 +3543,7 @@ async function recheckStatus(){
     try{ await resolveActiveWedding(); await cloudLoad(); subscribeRealtime(); }catch(e){ console.error(e); } enterApp();
   }
   else if(userStatus==='rejected'){ showRejectedScreen(); }
-  else { toast('Masih menunggu persetujuan admin'); }
+  else { toast('Masih menyiapkan akun — tunggu sebentar'); }
 }
 function adminSectionHTML(){
   if(!CLOUD_ENABLED || !currentUser || !isAdmin) return '';
@@ -3545,9 +3576,20 @@ function enterAdminConsole(){
             <option value="old">Terlama</option>
             <option value="name">Nama A–Z</option>
             <option value="active">Terakhir aktif</option>
+            <option value="ending">Masa coba hampir habis</option>
           </select>
         </div>
         <div id="adminList">Memuat…</div>
+      </div>
+      <div class="adm-card">
+        <div class="adm-card-h"><h2>⏳ Masa Coba &amp; Pembayaran</h2></div>
+        <p class="adm-note">Pendaftar baru <b>langsung aktif</b> tanpa perlu disetujui. Setelan di bawah berlaku untuk pendaftar berikutnya — akun yang sudah jalan tidak ikut berubah.</p>
+        <div class="mfield"><label>Lama masa coba (hari)</label>
+          <input type="number" id="cfgTrialDays" min="1" max="365" step="1" placeholder="7"></div>
+        <div class="mfield"><label>Link pembayaran</label>
+          <input type="url" id="cfgPayUrl" placeholder="https://… (link Mayar)" autocomplete="off" spellcheck="false"></div>
+        <p class="adm-note" style="margin-top:2px">Kalau link diisi, banner masa coba di aplikasi pengguna berubah jadi tombol yang bisa diklik. Kalau dikosongkan, banner tetap tampil tanpa tombol.</p>
+        <button class="btn btn-pri btn-block" data-act="save-trial-config" style="margin-top:10px">💾 Simpan Setelan</button>
       </div>
       <div class="adm-card">
         <div class="adm-card-h"><h2>📣 Laporan &amp; Masukan</h2><button class="btn btn-ghost" data-act="refresh-feedback" style="padding:7px 12px">↻ Muat ulang</button></div>
@@ -3571,6 +3613,7 @@ function enterAdminConsole(){
   if(sSort) sSort.addEventListener('change',renderAdminList);
   loadAdminUsers();
   loadFeedback();
+  loadTrialEditor();
   loadAnnounceEditor();
 }
 async function exportAllAccounts(){
@@ -3636,15 +3679,19 @@ async function loadAdminUsers(){
     if(pe) throw pe;
     const wmap={}; (weds||[]).forEach(w=>wmap[w.user_id]=w.updated_at);
     adminUsers=(profs||[]).map(u=>({...u,_active:wmap[u.id]||null}));
-    const pending=adminUsers.filter(u=>u.status==='pending');
-    const approved=adminUsers.filter(u=>u.status==='approved');
-    const rejected=adminUsers.filter(u=>u.status==='rejected');
+    const now=Date.now();
+    const live=adminUsers.filter(u=>u.status==='approved' && !u.is_admin);
+    const paid=live.filter(u=>u.access==='paid');
+    const onTrial=live.filter(u=>u.access!=='paid' && u.access!=='hold'
+      && u.trial_ends && new Date(u.trial_ends).getTime()>now);
+    const expired=live.filter(u=>u.access!=='paid' && u.access!=='hold'
+      && u.trial_ends && new Date(u.trial_ends).getTime()<=now);
     const stats=$('#admStats');
     if(stats) stats.innerHTML =
       admStat('Total', adminUsers.length, 'grape')
-      + admStat('Menunggu', pending.length, 'coral')
-      + admStat('Disetujui', approved.length, 'mint')
-      + admStat('Ditolak', rejected.length, 'rose');
+      + admStat('Masa coba', onTrial.length, 'coral')
+      + admStat('Lunas', paid.length, 'mint')
+      + admStat('Coba habis', expired.length, 'rose');
     renderAdminList();
   }catch(e){ console.error(e); if(box) box.innerHTML='<div class="warn">Gagal memuat. Pastikan SQL panel admin sudah dijalankan di Supabase.</div>'; }
 }
@@ -3659,14 +3706,18 @@ function renderAdminList(){
     new:(a,b)=>new Date(b.created_at)-new Date(a.created_at),
     old:(a,b)=>new Date(a.created_at)-new Date(b.created_at),
     name:(a,b)=>(displayUser(a.email)||'').localeCompare(displayUser(b.email)||''),
-    active:(a,b)=>new Date(b._active||0)-new Date(a._active||0)
+    active:(a,b)=>new Date(b._active||0)-new Date(a._active||0),
+    ending:(a,b)=>{
+      const t=u=>(u.access==='paid'||!u.trial_ends)?Infinity:new Date(u.trial_ends).getTime();
+      return t(a)-t(b);
+    }
   };
   list.sort(sorters[sort]||sorters.new);
   if(!list.length){ box.innerHTML=`<p class="pdf-empty">Tidak ada pengguna cocok “${esc(q)}”.</p>`; return; }
   const pending=list.filter(u=>u.status==='pending');
   const others=list.filter(u=>u.status!=='pending');
   box.innerHTML =
-    (pending.length?`<div class="admin-h">Menunggu Persetujuan (${pending.length})</div>`+pending.map(adminRow).join(''):'')
+    (pending.length?`<div class="admin-h">⚠️ Belum Aktif — perlu ditinjau (${pending.length})</div>`+pending.map(adminRow).join(''):'')
     + (others.length?`<div class="admin-h" style="margin-top:${pending.length?'18px':'0'}">${q?'Hasil':'Semua Pengguna'} (${others.length})</div>`+others.map(adminRow).join(''):'');
 }
 function admStat(label,n,color){ return `<div class="adm-stat" style="--c:var(--${color})"><b>${n}</b><span>${label}</span></div>`; }
@@ -3682,6 +3733,25 @@ function relTime(iso){
   const w=Math.floor(d/7); if(w<5) return w+' minggu lalu';
   const mo=Math.floor(d/30); if(mo<12) return mo+' bulan lalu';
   return Math.floor(d/365)+' tahun lalu';
+}
+async function loadTrialEditor(){
+  await loadTrialConfig();
+  const d=$('#cfgTrialDays'), u=$('#cfgPayUrl');
+  if(d) d.value=TRIAL_DAYS;
+  if(u) u.value=PAYMENT_URL;
+}
+async function saveTrialConfig(){
+  const days=parseInt($('#cfgTrialDays')?.value,10);
+  const url=($('#cfgPayUrl')?.value||'').trim();
+  if(!(days>=1 && days<=365)){ toast('Lama masa coba harus 1–365 hari'); return; }
+  if(url && !/^https?:\/\//i.test(url)){ toast('Link pembayaran harus diawali http:// atau https://'); return; }
+  try{
+    const {error}=await sb.from('app_config').upsert({key:'trial',value:{days,payment_url:url}},{onConflict:'key'});
+    if(error) throw error;
+    TRIAL_DAYS=days; PAYMENT_URL=url;
+    toast('Setelan disimpan — masa coba '+days+' hari ✅');
+    loadAdminUsers();
+  }catch(e){ console.error(e); toast('Gagal menyimpan. Jalankan dulu SQL auto-trial di Supabase.'); }
 }
 async function loadAnnounceEditor(){
   try{
@@ -3734,11 +3804,11 @@ function adminRow(u){
     </div>
     <div class="admin-acts">
       <button class="btn btn-ghost" data-act="view-account" data-id="${u.id}" style="padding:7px 12px">Lihat</button>
-      ${u.status!=='approved'?`<button class="btn btn-pri" data-act="approve-user" data-id="${u.id}" style="padding:7px 12px">Setujui (trial 3 hari)</button>`:''}
+      ${u.status!=='approved'?`<button class="btn btn-pri" data-act="approve-user" data-id="${u.id}" style="padding:7px 12px">Aktifkan (trial ${TRIAL_DAYS} hari)</button>`:''}
       ${u.status==='pending'?`<button class="btn btn-danger" data-act="reject-user" data-id="${u.id}" style="padding:7px 12px">Tolak</button>`:''}
       ${ap&&u.access!=='paid'?`<button class="btn btn-pri" data-act="mark-paid" data-id="${u.id}" style="padding:7px 12px;background:#0f9d7a">💳 Tandai Lunas</button>`:''}
       ${ap&&u.access!=='hold'&&!me?`<button class="btn btn-ghost" data-act="hold-user" data-id="${u.id}" style="padding:7px 12px;color:#be7b1b">⏸️ Hold 7 hari</button>`:''}
-      ${ap?`<button class="btn btn-ghost" data-act="extend-trial" data-id="${u.id}" style="padding:7px 12px;color:var(--grape)">➕ Trial 3 hari</button>`:''}
+      ${ap?`<button class="btn btn-ghost" data-act="extend-trial" data-id="${u.id}" style="padding:7px 12px;color:var(--grape)">➕ Trial ${TRIAL_DAYS} hari</button>`:''}
       ${!me?`<button class="btn btn-ghost" data-act="reset-pass-user" data-id="${u.id}" style="padding:7px 12px;color:var(--grape)">🔑 Reset</button>`:''}
       ${!me?`<button class="btn btn-danger" data-act="del-user" data-id="${u.id}" style="padding:7px 12px">🗑 Hapus</button>`:''}
     </div>
@@ -3777,17 +3847,25 @@ async function submitResetPass(id){
   }
 }
 async function approveUser(id){
-  const te=new Date(Date.now()+3*86400000).toISOString();
+  const te=new Date(Date.now()+TRIAL_DAYS*86400000).toISOString();
   try{
     let {error}=await sb.from('profiles').update({status:'approved',access:'trial',trial_ends:te,hold_ends:null}).eq('id',id);
     if(error){ ({error}=await sb.from('profiles').update({status:'approved'}).eq('id',id)); if(error) throw error; }
-    toast('Disetujui — masa coba 3 hari dimulai ✅');
+    toast('Disetujui — masa coba '+TRIAL_DAYS+' hari dimulai ✅');
   }catch(e){ console.error(e); toast('Gagal menyetujui'); }
   loadAdminUsers();
 }
 async function markPaid(id){
-  try{ const {error}=await sb.from('profiles').update({access:'paid',hold_ends:null}).eq('id',id); if(error) throw error; toast('Ditandai Lunas — akses penuh 💳'); }
-  catch(e){ console.error(e); toast('Gagal (jalankan SQL trial dulu?)'); }
+  const u=(adminUsers||[]).find(x=>x.id===id);
+  const who=u?(displayUser(u.email)||id.slice(0,8)):'pengguna ini';
+  const sisa=(u&&u.trial_ends)?daysLeft(u.trial_ends):0;
+  const catatan=sisa?`\n\nMasa cobanya masih ${sisa} hari — sisa itu akan berhenti dihitung dan akunnya jadi aktif penuh.`:'';
+  if(!confirm(`Tandai ${who} sebagai LUNAS?${catatan}\n\nPastikan pembayarannya sudah benar-benar masuk.`)) return;
+  try{
+    const {error}=await sb.from('profiles').update({access:'paid',trial_ends:null,hold_ends:null}).eq('id',id);
+    if(error) throw error;
+    toast(who+' ditandai Lunas — akses penuh 💳');
+  }catch(e){ console.error(e); toast('Gagal (jalankan SQL auto-trial dulu?)'); }
   loadAdminUsers();
 }
 async function holdUser(id){
@@ -3798,8 +3876,8 @@ async function holdUser(id){
   loadAdminUsers();
 }
 async function extendTrial(id){
-  const te=new Date(Date.now()+3*86400000).toISOString();
-  try{ const {error}=await sb.from('profiles').update({access:'trial',trial_ends:te,hold_ends:null}).eq('id',id); if(error) throw error; toast('Masa coba diperpanjang 3 hari ➕'); }
+  const te=new Date(Date.now()+TRIAL_DAYS*86400000).toISOString();
+  try{ const {error}=await sb.from('profiles').update({access:'trial',trial_ends:te,hold_ends:null}).eq('id',id); if(error) throw error; toast('Masa coba diperpanjang '+TRIAL_DAYS+' hari ➕'); }
   catch(e){ console.error(e); toast('Gagal (jalankan SQL trial dulu?)'); }
   loadAdminUsers();
 }

@@ -804,6 +804,9 @@ body.admin-mode #appFoot{display:none!important}
 #pdfStage .rdx-act{font-weight:600}
 .cmp-dim{color:#c9b3bb}
 .acc-bar{padding:11px 16px;font-size:13px;font-weight:600;line-height:1.5;text-align:center}
+.acc-cta{font:inherit;color:inherit;background:rgba(0,0,0,.07);border:1px solid rgba(0,0,0,.14);
+  border-radius:999px;padding:3px 11px;margin-left:4px;cursor:pointer;font-weight:800}
+.acc-cta:hover{background:rgba(0,0,0,.13)}
 .acc-trial{background:linear-gradient(90deg,#FFF3E0,#FFE9C7);color:#8a5a12;border-bottom:1px solid #F0DCA8}
 .acc-lock{background:linear-gradient(90deg,#FFF1F3,#FFE0E6);color:#9f1239;border-bottom:1px solid #F6C9D2}
 body.readonly #view input[type=text],
@@ -982,6 +985,8 @@ let sb=null, currentUser=null, lastWriteISO=null, lastWriteAt=0, lastSyncToast=0
 // disimpan di luar `state` supaya penyegaran data dari server tidak bisa
 // memindahkan tab yang sedang kamu buka.
 let activeTab='dashboard';
+let WA_ADMIN='6281776377908';   // nomor cadangan; bisa diganti dari Konsol Admin
+let upgradeShown=false;     // pop-up habis-masa-coba hanya muncul sekali per sesi
 let activeWeddingId=null, isWeddingOwner=true, myShareCode=null, partnerOwnerEmail='';
 let userStatus='approved', isAdmin=false, profileRetries=0;
 let userAccess='paid', trialEnds=null, holdEnds=null, READONLY=false, accessPhase='ok';
@@ -1010,7 +1015,49 @@ async function loadTrialConfig(){
     const d=parseInt(v.days,10);
     if(d>=1 && d<=365) TRIAL_DAYS=d;
     PAYMENT_URL=(v.payment_url||'').trim();
+    if(v.wa_admin!==undefined) WA_ADMIN=String(v.wa_admin).replace(/[^0-9]/g,'');
+    // kalau kunci wa_admin belum ada di app_config, nomor bawaan di atas tetap dipakai;
+    // kalau admin sengaja mengosongkannya, itu dihormati.
   }catch(e){ /* app_config belum ada → pakai nilai cadangan di atas */ }
+}
+function waLink(){
+  if(!WA_ADMIN) return '';
+  const siapa=displayUser(currentUser&&currentUser.email)||'-';
+  const st=(state&&state.settings)||{};
+  const pasangan=(st.partner1&&st.partner1!=='Mempelai')
+    ? `${st.partner1} & ${st.partner2||''}`.trim() : '';
+  const pesan=`Halo admin, saya mau aktifkan akun NaikPelaminan.\n\nUsername: ${siapa}`
+    + (pasangan?`\nPernikahan: ${pasangan}`:'')
+    + `\n\nMohon info cara pembayarannya. Terima kasih.`;
+  return `https://wa.me/${WA_ADMIN}?text=${encodeURIComponent(pesan)}`;
+}
+function upgradeModal(){
+  const habis = accessPhase==='trial_expired';
+  const wa=waLink();
+  const tombol = wa
+    ? `<a class="btn btn-pri btn-block" href="${wa}" target="_blank" rel="noopener" style="text-decoration:none;display:block;text-align:center">💬 Chat Admin buat Aktifkan</a>`
+    : (PAYMENT_URL
+        ? `<a class="btn btn-pri btn-block" href="${PAYMENT_URL}" target="_blank" rel="noopener" style="text-decoration:none;display:block;text-align:center">Lanjut ke Pembayaran</a>`
+        : `<p style="text-align:center;color:var(--ink-soft);font-size:13px">Admin belum mengisi kontak. Coba lagi nanti.</p>`);
+  const bayarJuga = (wa && PAYMENT_URL)
+    ? `<a class="btn btn-ghost btn-block" href="${PAYMENT_URL}" target="_blank" rel="noopener" style="text-decoration:none;display:block;text-align:center;margin-top:8px">Atau bayar sendiri lewat link</a>` : '';
+  openModal(`
+    <div class="modal-head"><h3>${habis?'Masa coba sudah berakhir':'Aktifkan akun kamu'}</h3><button class="modal-x" data-act="close">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:13.5px;line-height:1.65;color:var(--ink-soft);margin:0 0 14px">
+        ${habis
+          ? 'Semua data kamu masih utuh dan bisa dilihat — cuma belum bisa diubah. Aktifkan akun biar bisa lanjut ngedit lagi.'
+          : 'Aktifkan sekarang biar nggak keburu terkunci pas lagi butuh-butuhnya.'}
+      </p>
+      <div style="background:var(--cream);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:16px">
+        <div style="font-size:20px;font-weight:800;color:var(--ink)">Rp 79.000</div>
+        <div style="font-size:12.5px;color:var(--ink-soft);margin-top:3px">Sekali bayar · semua fitur kebuka · tanpa langganan bulanan</div>
+      </div>
+      ${tombol}
+      ${bayarJuga}
+      <p style="text-align:center;font-size:11.5px;color:var(--ink-soft);margin:12px 0 0">
+        Data kamu tetap aman selama akun belum aktif.</p>
+    </div>`);
 }
 function payLink(label,fallback){
   return PAYMENT_URL
@@ -1022,9 +1069,11 @@ function renderAccessBanner(){
   let h='';
   if(!isAdmin){
     if(accessPhase==='trial'){ const d=daysLeft(trialEnds);
-      h=`<div class="acc-bar acc-trial">⏳ Masa coba aktif — <b>${d} hari lagi</b>. Suka? ${payLink('Aktifkan akun →','Lakukan pembayaran biar akun tetap aktif.')}</div>`; }
+      h=`<div class="acc-bar acc-trial">⏳ Masa coba aktif — <b>${d} hari lagi</b>. Suka? <button class="acc-cta" data-act="upgrade">Aktifkan akun →</button></div>`; }
     else if(accessPhase==='trial_expired'){
-      h=`<div class="acc-bar acc-lock">🔒 Masa coba berakhir — akun kini <b>baca-saja</b>. Semua datamu tetap tersimpan. ${payLink('Aktifkan sekarang →','Lakukan pembayaran untuk aktif kembali (hubungi admin).')}</div>`; }
+      h=`<div class="acc-bar acc-lock">🔒 Masa coba berakhir — akun kini <b>baca-saja</b>. Semua datamu tetap tersimpan. <button class="acc-cta" data-act="upgrade">Aktifkan sekarang →</button></div>`;
+      // Muncul sendiri sekali per sesi. Setelah ditutup, tetap bisa dibuka lewat tombol di banner.
+      if(!upgradeShown){ upgradeShown=true; setTimeout(()=>{ if(accessPhase==='trial_expired') upgradeModal(); }, 900); } }
     else if(accessPhase==='hold'){
       h=`<div class="acc-bar acc-lock">🔒 Akun sedang <b>di-hold</b> (mode baca-saja). Datamu tersimpan aman. Hubungi admin untuk mengaktifkan kembali.</div>`; }
   }
@@ -1061,7 +1110,11 @@ async function localSet(v){ try{ if(!window.storage) return; await window.storag
 /* ---------- save (otomatis dialihkan ke cloud / lokal) ---------- */
 let saveTimer=null;
 function save(){
-  if(READONLY){ toast('Akun kamu mode baca-saja 🔒'); return; }
+  if(READONLY){
+    toast('Akun kamu mode baca-saja 🔒');
+    if(accessPhase==='trial_expired') setTimeout(upgradeModal,600);   // dia lagi mau ngedit — tawarkan di sini
+    return;
+  }
   clearTimeout(saveTimer);
   if(CLOUD_ENABLED && currentUser){
     setSync('saving');
@@ -2391,6 +2444,7 @@ document.addEventListener('click',e=>{
     case 'fb-delete': fbDelete(id); break;
     case 'save-announce': saveAnnounce(); break;
     case 'save-trial-config': saveTrialConfig(); break;
+    case 'upgrade': upgradeModal(); break;
     case 'dismiss-announce': announceDismissed=true; { const b=$('#announceBar'); if(b) b.innerHTML=''; } break;
     case 'toggle-personalize': togglePersona(); break;
     case 'toggle-feedback': toggleFeedback(); break;
@@ -3609,7 +3663,9 @@ function enterAdminConsole(){
         <p class="adm-note">Pendaftar baru <b>langsung aktif</b> tanpa perlu disetujui. Setelan di bawah berlaku untuk pendaftar berikutnya — akun yang sudah jalan tidak ikut berubah.</p>
         <div class="mfield"><label>Lama masa coba (hari)</label>
           <input type="number" id="cfgTrialDays" min="1" max="365" step="1" placeholder="7"></div>
-        <div class="mfield"><label>Link pembayaran</label>
+        <div class="mfield"><label>Nomor WhatsApp admin</label>
+          <input type="text" id="cfgWaAdmin" placeholder="628xxxxxxxxxx (pakai 62, tanpa + atau spasi)" autocomplete="off" spellcheck="false"></div>
+        <div class="mfield"><label>Link pembayaran <span class="fhint">(opsional)</span></label>
           <input type="url" id="cfgPayUrl" placeholder="https://… (link Mayar)" autocomplete="off" spellcheck="false"></div>
         <p class="adm-note" style="margin-top:2px">Kalau link diisi, banner masa coba di aplikasi pengguna berubah jadi tombol yang bisa diklik. Kalau dikosongkan, banner tetap tampil tanpa tombol.</p>
         <button class="btn btn-pri btn-block" data-act="save-trial-config" style="margin-top:10px">💾 Simpan Setelan</button>
@@ -3759,19 +3815,22 @@ function relTime(iso){
 }
 async function loadTrialEditor(){
   await loadTrialConfig();
-  const d=$('#cfgTrialDays'), u=$('#cfgPayUrl');
+  const d=$('#cfgTrialDays'), u=$('#cfgPayUrl'), w=$('#cfgWaAdmin');
   if(d) d.value=TRIAL_DAYS;
   if(u) u.value=PAYMENT_URL;
+  if(w) w.value=WA_ADMIN;
 }
 async function saveTrialConfig(){
   const days=parseInt($('#cfgTrialDays')?.value,10);
   const url=($('#cfgPayUrl')?.value||'').trim();
+  const wa=($('#cfgWaAdmin')?.value||'').replace(/[^0-9]/g,'');
   if(!(days>=1 && days<=365)){ toast('Lama masa coba harus 1–365 hari'); return; }
   if(url && !/^https?:\/\//i.test(url)){ toast('Link pembayaran harus diawali http:// atau https://'); return; }
+  if(wa && !/^62\d{7,15}$/.test(wa)){ toast('Nomor WA harus diawali 62, contoh: 6281776377908'); return; }
   try{
-    const {error}=await sb.from('app_config').upsert({key:'trial',value:{days,payment_url:url}},{onConflict:'key'});
+    const {error}=await sb.from('app_config').upsert({key:'trial',value:{days,payment_url:url,wa_admin:wa}},{onConflict:'key'});
     if(error) throw error;
-    TRIAL_DAYS=days; PAYMENT_URL=url;
+    TRIAL_DAYS=days; PAYMENT_URL=url; WA_ADMIN=wa;
     toast('Setelan disimpan — masa coba '+days+' hari ✅');
     loadAdminUsers();
   }catch(e){ console.error(e); toast('Gagal menyimpan. Jalankan dulu SQL auto-trial di Supabase.'); }

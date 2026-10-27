@@ -1696,7 +1696,7 @@ function renderTabs(){
   if(sn) sn.innerHTML=TABS.map(([id,emo,lbl])=>
     `<button class="side-item ${state.activeTab===id?'active':''}" data-act="tab" data-tab="${id}"><span class="si-ic">${emo}</span><span>${lbl}</span></button>`
   ).join('');
-  const BN=[['dashboard','🏠','Beranda'],['vendor','🤝','Vendor'],['__add','','Tambah'],['checklist','✅','Checklist'],['__more','☰','Lainnya']];
+  const BN=[['dashboard','🏠','Beranda'],['vendor','🤝','Vendor'],['__add','','Tambah'],['checklist','✅','Checklist'],['guests','💌','Tamu']];
   const bn=$('#bottomNav');
   if(bn) bn.innerHTML=BN.map(([id,emo,lbl])=>{
     if(id==='__add') return `<button class="bn-add" data-act="bottom-add" aria-label="Tambah cepat">+</button>`;
@@ -1706,7 +1706,15 @@ function renderTabs(){
   }).join('');
   setupSearch();
 }
-function switchTab(t){ state.activeTab=t; save(); renderTabs(); renderView(); closeNav(); window.scrollTo({top:0,behavior:'smooth'}); }
+function setActiveNav(t){
+  document.querySelectorAll('#tabs .side-item').forEach(b=>b.classList.toggle('active', b.dataset.tab===t));
+  document.querySelectorAll('#bottomNav .bn-item').forEach(b=>b.classList.toggle('active', b.dataset.tab===t));
+}
+function switchTab(t){
+  if(state.activeTab===t){ closeNav(); return; }
+  state.activeTab=t; save(); setActiveNav(t); renderView(); closeNav();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 function closeNav(){ document.body.classList.remove('nav-open','drawer-open'); }
 function openDrawer(mode){
   const dr=$('#navDrawer'); if(!dr) return;
